@@ -26,14 +26,48 @@ class SortItem extends DataObject
 
     private static $indexes = [
         'Title' => true,
+
         'SortOrder' => true,
     ];
 
     private static $default_sort = 'SortOrder ASC, ID DESC';
 
+    private static $summary_fields = [
+        'FieldNameNice' => 'Field Name',
+        'SortDirectionNice' => 'Sort Direction',
+    ];
+
     private static $casting = [
         'Title' => 'Varchar',
+        'FieldNameNice' => 'Varchar',
+        'SortDirectionNice' => 'Varchar',
     ];
+
+    public function getTitle(): string
+    {
+        return implode(
+            ' - ',
+            array_filter(
+                [
+                    $this->getFieldNameNice(),
+                    $this->getSortDirectionNice(),
+                ]
+            )
+        );
+    }
+
+    public function getFieldNameNice(): string
+    {
+        $list = $this->getFieldsNamesAvailable();
+        return $list[$this->FieldName] ?? $this->FieldName;
+    }
+
+    public function getFilterTypeNice(): string
+    {
+        $list = $this->getFilterTypesAvailable();
+        return $list[$this->FilterType] ?? $this->FilterType;
+    }
+
 
     public function getCMSFields()
     {
@@ -59,26 +93,31 @@ class SortItem extends DataObject
             OptionsetField::create(
                 'SortDirection',
                 'Select Sort Direction',
-                [
-                    'ASC' => 'Ascending',
-                    'DESC' => 'Descending'
-                ]
+                $this->getSortDirectionsAvailable()
             )
         );
         $fields->remove('SortOrder');
         return $fields;
     }
 
+
+
     protected function getFieldsNamesAvailable(): array
     {
         $selection = $this->Selection();
-        $list = Injector::inst()->get(ClassAndFieldInfo::class)
+        return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection,
                 $selection->ModelClassName,
                 ['db']
             );
-        $exclude = $this->Selection()->SortSelection()->exclude(['ID' => $this->ID])->map('FieldName', 'FieldName')->toArray();
-        return array_diff($list, $exclude);
+    }
+
+    protected function getSortDirectionsAvailable(): array
+    {
+        return [
+            'ASC' => 'Ascending',
+            'DESC' => 'Descending',
+        ];
     }
 }

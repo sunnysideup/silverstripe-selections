@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use SilverStripe\AnyField\Form\ManyAnyField;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\GridField\GridField;
@@ -12,6 +13,7 @@ use SilverStripe\Forms\GridField\GridFieldDataColumns;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
 
@@ -85,6 +87,24 @@ class Selection extends DataObject
                     ->setDisplayFields($displayFields);
             }
         }
+        $fields->addFieldsToTab(
+            'Root.SortSelection',
+            [
+                ManyAnyField::create('SortSelection', 'Sorts'),
+            ]
+        );
+        $fields->addFieldsToTab(
+            'Root.FilterSelection',
+            [
+                ManyAnyField::create('FilterSelection', 'Filters'),
+            ]
+        );
+        $fields->addFieldsToTab(
+            'Root.DisplaySelection',
+            [
+                ManyAnyField::create('DisplaySelection', 'Displays'),
+            ]
+        );
     }
 
 
@@ -188,7 +208,7 @@ class Selection extends DataObject
         return null;
     }
 
-    public function getFieldTypeObject(string $fieldName): : DBField
+    public function getFieldTypeObject(string $fieldName): DBField
     {
         $singleton = $this->getModelSingleton();
         return Injector::inst()->get(ClassAndFieldInfo::class)

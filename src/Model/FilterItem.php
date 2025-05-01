@@ -35,9 +35,43 @@ class FilterItem extends DataObject
 
     private static $default_sort = 'SortOrder ASC, ID DESC';
 
+    private static $summary_fields = [
+        'FieldNameNice' => 'Field Name',
+        'FilterTypeNice' => 'Filter Type',
+        'FilterValue' => 'Filter Value',
+    ];
+
     private static $casting = [
         'Title' => 'Varchar',
+        'FieldNameNice' => 'Varchar',
+        'FilterTypeNice' => 'Varchar',
     ];
+
+    public function getTitle(): string
+    {
+        return implode(
+            ' - ',
+            array_filter(
+                [
+                    $this->getFieldNameNice(),
+                    $this->getFilterTypeNice(),
+                    $this->FilterValue,
+                ]
+            )
+        );
+    }
+
+    public function getFieldNameNice(): string
+    {
+        $list = $this->getFieldsNamesAvailable();
+        return $list[$this->FieldName] ?? $this->FieldName;
+    }
+
+    public function getFilterTypeNice(): string
+    {
+        $list = $this->getFilterTypesAvailable();
+        return $list[$this->FilterType] ?? $this->FilterType;
+    }
 
     public function getCMSFields()
     {
@@ -63,7 +97,7 @@ class FilterItem extends DataObject
             OptionsetField::create(
                 'FilterType',
                 'Select Filter Type',
-                $this->getFilterTypeAvailable()
+                $this->getFilterTypesAvailable()
             )->setEmptyString('Exact Match')
         );
         $obj = $this->getFieldTypeObject();
@@ -81,17 +115,15 @@ class FilterItem extends DataObject
     protected function getFieldsNamesAvailable(): array
     {
         $selection = $this->Selection();
-        $list = Injector::inst()->get(ClassAndFieldInfo::class)
+        return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection,
                 $selection->ModelClassName,
                 ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many']
             );
-        // exclude existing ones?
-        return $list;
     }
 
-    protected function getFilterTypeAvailable(): array
+    protected function getFilterTypesAvailable(): array
     {
         return [
             'PartialMatch' => 'Contains',
@@ -101,7 +133,7 @@ class FilterItem extends DataObject
             'GreaterThanOrEqual' => 'Greater Than or Equal',
             'LessThan' => 'Less Than',
             'LessThanOrEqual' => 'Less Than or Equal',
-            'Not' => 'Exclude',
+            'Not' => 'Select not matching values',
         ];
     }
 
