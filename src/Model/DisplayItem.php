@@ -1,0 +1,83 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sunnysideup\Selections\Model;
+
+use SilverStripe\Core\Config\Config;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\OptionsetField;
+use SilverStripe\ORM\DataObject;
+use SilverStripe\ORM\FieldType\DBField;
+use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
+
+class DisplayItem extends DataObject
+{
+    private static $table_name = 'SelectionsDisplayItem';
+
+    private static $db = [
+        'Title' => 'Varchar(255)',
+        'FieldName' => 'Varchar(255)',
+        'DisplayType' => 'Varchar(255)',
+        'SortOrder' => 'Int',
+    ];
+
+    private static $has_one = [
+        'Selection' => Selection::class,
+    ];
+
+    private static $indexes = [
+        'SortOrder' => true,
+    ];
+
+    private static $default_sort = 'SortOrder ASC, ID DESC';
+
+
+    public function getCMSFields()
+    {
+        $fields = parent::getCMSFields();
+        $fields->replaceField(
+            'FieldName',
+            OptionsetField::create(
+                'FieldName',
+                'Select Field',
+                $this->getFieldsNamesAvailable()
+            )
+        );
+        $fields->replaceField(
+            'DisplayType',
+            OptionsetField::create(
+                'DisplayType',
+                'Format Type',
+                $this->getDisplayTypesAvailable()
+            )
+                ->setEmptyString('-- no specific formatting --')
+        );
+        $fields->remove('SortOrder');
+    }
+    protected function getFieldsNamesAvailable(): array
+    {
+        $selection = $this->Selection();
+        $list = Injector::inst()->get(ClassAndFieldInfo::class)
+            ->getListOfFieldNames(
+                $selection,
+                $selection->ModelClassName,
+                ['db', 'casting', 'has_one', 'belongs']
+            );
+        $exclude = $this->Selection()->DisplayItem()->exclude(['ID' => $this->ID])->map('FieldName', 'FieldName')->toArray();
+        return array_diff($list, $exclude);
+    }
+
+
+    protected function getDisplayTypesAvailable(): array
+    {
+        $obj = $this->getFieldTypeObject();
+        $vars = Config::inst()->get($obj->ClassName, 'casting') ?: [];
+        return array_keys($vars);
+    }
+
+    protected function getFieldTypeObject(): DBField
+    {
+        return $this->Selection()->getFieldTypeObject($this->FieldName);
+    }
+}
