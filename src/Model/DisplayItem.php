@@ -31,8 +31,29 @@ class DisplayItem extends DataObject
         'SortOrder' => true,
     ];
 
-    private static $default_sort = 'SortOrder ASC, ID DESC';
+    private static $default_sort = 'SortOrder ASC, ID ASC';
 
+    private static $field_labels = [
+        'Title' => 'Header',
+        'FieldNameNice' => 'Shows',
+        'DisplayType' => 'Formatting',
+    ];
+
+    private static $summary_fields = [
+        'Title' => 'Header',
+        'FieldNameNice' => 'Shows',
+        'DisplayType' => 'Formatting',
+    ];
+
+    private static $casting = [
+        'FieldNameNice' => 'Varchar',
+    ];
+
+    public function getFieldNameNice(): string
+    {
+        $list = $this->getFieldsNamesAvailable();
+        return $list[$this->FieldName] ?? $this->FieldName;
+    }
 
     public function getCMSFields()
     {
@@ -64,6 +85,7 @@ class DisplayItem extends DataObject
         );
         $fields->remove('SortOrder');
     }
+
     protected function getFieldsNamesAvailable(): array
     {
         $selection = $this->Selection();

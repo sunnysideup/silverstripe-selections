@@ -29,7 +29,7 @@ class SortItem extends DataObject
         'SortOrder' => true,
     ];
 
-    private static $default_sort = 'SortOrder ASC, ID DESC';
+    private static $default_sort = 'SortOrder ASC, ID ASC';
 
     private static $summary_fields = [
         'FieldNameNice' => 'Field Name',

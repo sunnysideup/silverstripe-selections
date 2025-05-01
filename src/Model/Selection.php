@@ -174,8 +174,7 @@ class Selection extends DataObject
     {
         $filterArray = [];
         foreach ($this->FilterSelection() as $filter) {
-            $filterType = $filter->FilterType ? ':' . $filter->FilterType : '';
-            $filterArray[$filter->FieldName . $filterType] = $filter->Value;
+            $filterArray[$filter->getFieldNameCalculated()] = $filter->getFieldValueCalculated();
         }
         return $filterArray;
     }

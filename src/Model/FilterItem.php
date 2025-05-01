@@ -22,18 +22,17 @@ class FilterItem extends DataObject
         'FieldName' => 'Varchar(255)',
         'FilterType' => 'Varchar(255)',
         'FilterValue' => 'Varchar(255)',
+        'IsEmpty' => 'Boolean',
+        'SelectOpposite' => 'Boolean',
     ];
 
     private static $has_one = [
         'Selection' => Selection::class,
     ];
 
-    private static $indexes = [
-        'Title' => true,
-        'SortOrder' => true,
-    ];
+    private static $indexes = [];
 
-    private static $default_sort = 'SortOrder ASC, ID DESC';
+    private static $default_sort = 'ID ASC';
 
     private static $summary_fields = [
         'FieldNameNice' => 'Field Name',
@@ -41,10 +40,20 @@ class FilterItem extends DataObject
         'FilterValue' => 'Filter Value',
     ];
 
+    private static $field_labels = [
+        'FieldNameNice' => 'Field Name',
+        'FilterTypeNice' => 'Filter Type',
+        'FilterValue' => 'Filter Value',
+        'FieldNameCalculated' => 'Key for filtering',
+        'FieldValueCalculated' => 'Value for filtering',
+    ];
+
     private static $casting = [
         'Title' => 'Varchar',
         'FieldNameNice' => 'Varchar',
         'FilterTypeNice' => 'Varchar',
+        'FieldNameCalculated' => 'Varchar',
+        'FieldValueCalculated' => 'Varchar',
     ];
 
     public function getTitle(): string
@@ -71,6 +80,26 @@ class FilterItem extends DataObject
     {
         $list = $this->getFilterTypesAvailable();
         return $list[$this->FilterType] ?? $this->FilterType;
+    }
+
+    public function getFieldNameCalculated(): string
+    {
+        $v = $this->FieldName;
+        if ($this->FilterType) {
+            $v .= ':' . $this->FilterType;
+        }
+        if ($this->SelectOpposite) {
+            $v .= ':NOT';
+        }
+        return $v;
+    }
+
+    public function getFieldValueCalculated(): string|array
+    {
+        if ($this->FilterValue || !$this->IsEmpty) {
+            return $this->FilterValue;
+        }
+        return [null, '', 0];
     }
 
     public function getCMSFields()
@@ -133,7 +162,6 @@ class FilterItem extends DataObject
             'GreaterThanOrEqual' => 'Greater Than or Equal',
             'LessThan' => 'Less Than',
             'LessThanOrEqual' => 'Less Than or Equal',
-            'Not' => 'Select not matching values',
         ];
     }
 
