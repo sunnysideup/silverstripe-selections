@@ -6,6 +6,7 @@ namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
@@ -35,14 +36,22 @@ class DisplayItem extends DataObject
 
     public function getCMSFields()
     {
+        $fieldNameField = OptionsetField::create(
+            'FieldName',
+            'Select Field',
+            $this->getFieldsNamesAvailable()
+        );
+        if (!$this->FieldName) {
+            return FieldList::create(
+                $fieldNameField
+            );
+        }
         $fields = parent::getCMSFields();
         $fields->replaceField(
             'FieldName',
-            OptionsetField::create(
-                'FieldName',
-                'Select Field',
-                $this->getFieldsNamesAvailable()
-            )
+            $fieldNameField
+                ->setTitle('Selected Field')
+                ->performDisabledTransformation()
         );
         $fields->replaceField(
             'DisplayType',
