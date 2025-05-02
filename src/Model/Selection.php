@@ -12,6 +12,7 @@ use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldDataColumns;
 use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
+use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
@@ -49,6 +50,21 @@ class Selection extends DataObject
     ];
 
     private static $default_sort = 'ID DESC';
+    private static array $class_and_field_inclusion_exclusion_schema = [
+        // 'only_include_models_with_cmseditlink' => true,
+        // 'only_include_models_with_can_create_true' => false,
+        // 'only_include_models_with_can_edit_true' => false,
+        // 'only_include_models_with_records' => true,
+        // 'excluded_models' => [],
+        // 'included_models' => [],
+        // 'excluded_fields' => [],
+        // 'included_fields' => [],
+        // 'excluded_field_types' => [],
+        // 'included_field_types' => [],
+        // 'excluded_class_field_combos' => [],
+        // 'included_class_field_combos' => [],
+        'grouped' => true,
+    ];
 
     public function getCMSFields()
     {
@@ -119,32 +135,48 @@ class Selection extends DataObject
     }
 
 
-    protected function getSelectClassNameField(?bool $withInstructions = true, ?bool $onlyShowSelectedvalue = false): OptionsetField
+    protected function getSelectClassNameField(?bool $grouped = true): GroupedDropdownField|ReadonlyField
     {
-        $field = GroupedDropdownField::create(
-            'ModelClassName',
-            $this->fieldLabel('ModelClassName'),
-            $this->getListOfClasses(
-                ['Grouped' => true]
-            )
-        );
-        if ($withInstructions) {
-            $field->setDescription(
+        if ($this->HasValidClassName()) {
+            $field = ReadonlyField::create(
+                'ModelClassNameNice',
+                $this->fieldLabel('ModelClassNameNice'),
+                $this->getClassNameToChangeNice()
+            );
+        } else {
+            $field = GroupedDropdownField::create(
+                'ModelClassName',
+                $this->fieldLabel('ModelClassName'),
+                Injector::inst()->get(ClassAndFieldInfo::class)->getListOfClasses(
+                    array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'),
+                )
+            )->setDescription(
                 '
-                    Please select the record type you want to change.
-                    This will be used to create a list of records to process.
-                    Once selected, please save the record to continue.
+                    Please select the record type you want to use for your selection.
+                    Once you have this locked in (saved), you can start to make your selection.
                 '
             );
         }
-        if ($onlyShowSelectedvalue) {
-            $source = $field->getSource();
-            $field->setSource([
-                $this->ClassNameToChange => $source[$this->ClassNameToChange] ?? 'ERROR! Class not found',
-            ]);
-        }
-
         return $field;
+    }
+
+
+    public function getClassNameToChangeNice(): string
+    {
+        $obj = $this->getRecordSingleton();
+        if ($obj) {
+            return $obj->i18n_singular_name();
+        }
+        return 'ERROR: Class not found';
+    }
+
+
+    public function getRecordSingleton()
+    {
+        if ($this->HasValidClassName()) {
+            return Injector::inst()->get($this->ModelClassName);
+        }
+        return null;
     }
 
     public function getSelectionDataList(): DataList

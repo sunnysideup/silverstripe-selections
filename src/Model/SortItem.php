@@ -43,6 +43,21 @@ class SortItem extends DataObject
         'FieldNameNice' => 'Varchar',
         'SortDirectionNice' => 'Varchar',
     ];
+    private static array $class_and_field_inclusion_exclusion_schema = [
+        // 'only_include_models_with_cmseditlink' => true,
+        // 'only_include_models_with_can_create_true' => false,
+        // 'only_include_models_with_can_edit_true' => false,
+        // 'only_include_models_with_records' => true,
+        // 'excluded_models' => [],
+        // 'included_models' => [],
+        // 'excluded_fields' => [],
+        // 'included_fields' => [],
+        // 'excluded_field_types' => [],
+        // 'included_field_types' => [],
+        // 'excluded_class_field_combos' => [],
+        // 'included_class_field_combos' => [],
+        'grouped' => true,
+    ];
 
     public function getTitle(): string
     {
@@ -112,7 +127,7 @@ class SortItem extends DataObject
             ->getListOfFieldNames(
                 $selection->ModelClassName,
                 ['db'],
-                $grouped ? ['grouped' => true] : []
+                array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
             );
     }
 
