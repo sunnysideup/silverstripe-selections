@@ -18,6 +18,7 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
+use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
 class Selection extends DataObject
 {
@@ -92,8 +93,7 @@ class Selection extends DataObject
                         'Results',
                         'Matching Records',
                         $this->getSelectionDataList(),
-                        GridFieldConfig_RecordEditor::create()
-                            ->setPageSize(10)
+                        GridFieldConfig_RecordEditor::create(10)
                     ),
                 ],
             );
@@ -104,30 +104,31 @@ class Selection extends DataObject
                     ->setDisplayFields($displayFields);
             }
         }
-        $fields->addFieldsToTab(
-            'Root.SortSelection',
-            [
-                ManyAnyField::create('SortSelection', 'Sorts'),
-            ]
-        );
-        $fields->addFieldsToTab(
-            'Root.FilterSelection',
-            [
-                ManyAnyField::create('FilterSelection', 'Filters'),
-            ]
-        );
-        $fields->addFieldsToTab(
-            'Root.DisplaySelection',
-            [
-                ManyAnyField::create('DisplaySelection', 'Displays'),
-            ]
-        );
+        // $fields->addFieldsToTab(
+        //     'Root.SortSelection',
+        //     [
+        //         ManyAnyField::create('SortSelection', 'Sorts'),
+        //     ]
+        // );
+        // $fields->addFieldsToTab(
+        //     'Root.FilterSelection',
+        //     [
+        //         ManyAnyField::create('FilterSelection', 'Filters'),
+        //     ]
+        // );
+        // $fields->addFieldsToTab(
+        //     'Root.DisplaySelection',
+        //     [
+        //         ManyAnyField::create('DisplaySelection', 'Displays'),
+        //     ]
+        // );
+        return $fields;
     }
 
 
     protected function HasValidClassName(): bool
     {
-        $className = $this->ClassNameToChange;
+        $className = $this->ModelClassName;
         if ($className && class_exists($className)) {
             return true;
         }
@@ -135,16 +136,16 @@ class Selection extends DataObject
     }
 
 
-    protected function getSelectClassNameField(?bool $grouped = true): GroupedDropdownField|ReadonlyField
+    protected function getSelectClassNameField(?bool $grouped = true): OptionsetGroupedField|ReadonlyField
     {
         if ($this->HasValidClassName()) {
             $field = ReadonlyField::create(
                 'ModelClassNameNice',
                 $this->fieldLabel('ModelClassNameNice'),
-                $this->getClassNameToChangeNice()
+                $this->getModelClassNameNice()
             );
         } else {
-            $field = GroupedDropdownField::create(
+            $field = OptionsetGroupedField::create(
                 'ModelClassName',
                 $this->fieldLabel('ModelClassName'),
                 Injector::inst()->get(ClassAndFieldInfo::class)->getListOfClasses(
@@ -161,7 +162,7 @@ class Selection extends DataObject
     }
 
 
-    public function getClassNameToChangeNice(): string
+    public function getModelClassNameNice(): string
     {
         $obj = $this->getRecordSingleton();
         if ($obj) {
@@ -181,7 +182,7 @@ class Selection extends DataObject
 
     public function getSelectionDataList(): DataList
     {
-        $className = $this->ClassNameToChange;
+        $className = $this->ModelClassName;
         $list = $className::get();
         $filter = $this->getSelectionFilterArray();
         if (!empty($filter)) {
@@ -209,7 +210,11 @@ class Selection extends DataObject
     {
         $filterArray = [];
         foreach ($this->FilterSelection() as $filter) {
-            $filterArray[$filter->getFieldNameCalculated()] = $filter->getFieldValueCalculated();
+            $key = $filter->getFieldNameCalculated();
+            $value = $filter->getFieldValueCalculated();
+            if ($key && $value) {
+                $filterArray[$filter->getFieldNameCalculated()] = $filter->getFieldValueCalculated();
+            }
         }
         return $filterArray;
     }
@@ -235,7 +240,7 @@ class Selection extends DataObject
 
     public function getModelSingleton(): mixed
     {
-        $className = $this->ClassNameToChange;
+        $className = $this->ModelClassName;
         if ($className && class_exists($className)) {
             return Injector::inst()->get($className);
         }

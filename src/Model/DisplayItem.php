@@ -7,12 +7,12 @@ namespace Sunnysideup\Selections\Model;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
+use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
 class DisplayItem extends DataObject
 {
@@ -77,7 +77,7 @@ class DisplayItem extends DataObject
     {
         if (!$this->FieldName) {
             return FieldList::create(
-                GroupedDropdownField::create(
+                OptionsetGroupedField::create(
                     'FieldName',
                     'Select Field',
                     $this->getFieldsNamesAvailable(true)

@@ -11,6 +11,7 @@ use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
+use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
 class SortItem extends DataObject
 {
@@ -89,7 +90,7 @@ class SortItem extends DataObject
 
         if (!$this->FieldName) {
             return FieldList::create(
-                GroupedDropdownField::create(
+                OptionsetGroupedField::create(
                     'FieldName',
                     'Select Field',
                     $this->getFieldsNamesAvailable(true)

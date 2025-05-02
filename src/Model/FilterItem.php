@@ -7,6 +7,7 @@ namespace Sunnysideup\Selections\Model;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\GroupedDropdownField;
+use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\GraphQL\Schema\Field\Field;
@@ -14,6 +15,7 @@ use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DB;
 use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
+use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
 class FilterItem extends DataObject
 {
@@ -89,18 +91,18 @@ class FilterItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        return $list[$this->FieldName] ?? $this->FieldName;
+        return $list[$this->FieldName] ?? $this->FieldName ?: 'ERROR';
     }
 
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
-        return $list[$this->FilterType] ?? $this->FilterType;
+        return $list[$this->FilterType] ?? $this->FilterType ?: 'ERROR';
     }
 
     public function getFieldNameCalculated(): string
     {
-        $v = $this->FieldName;
+        $v = (string) $this->FieldName;
         if ($this->FilterType) {
             $v .= ':' . $this->FilterType;
         }
@@ -112,17 +114,25 @@ class FilterItem extends DataObject
 
     public function getFieldValueCalculated(): string|array
     {
-        if ($this->FilterValue || !$this->IsEmpty) {
-            return $this->FilterValue;
+        if ($this->IsEmpty || !$this->FilterValue) {
+            return [null, '', 0];
         }
-        return [null, '', 0];
+        return $this->FilterValue;
     }
 
     public function getCMSFields()
     {
+        if (! $this->exists()) {
+            return FieldList::create(
+                LiteralField::create(
+                    'Info',
+                    '<p>Please create first.</p>'
+                )
+            );
+        }
         if (!$this->FieldName) {
             return FieldList::create(
-                GroupedDropdownField::create(
+                OptionsetGroupedField::create(
                     'FieldName',
                     'Select Field',
                     $this->getFieldsNamesAvailable(true)
@@ -147,6 +157,10 @@ class FilterItem extends DataObject
             )->setEmptyString('Exact Match')
         );
         $obj = $this->getFieldTypeObject();
+        $class = get_class($obj);
+        $obj = $class::create(
+            'FilterValue',
+        );
         $obj->setName('FilterValue');
         $newField = $obj->scaffoldFormField(
             'Value for filtering',
@@ -161,6 +175,9 @@ class FilterItem extends DataObject
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $selection = $this->Selection();
+        if (!$selection->exists() || !$selection->ModelClassName) {
+            return [];
+        }
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection->ModelClassName,
