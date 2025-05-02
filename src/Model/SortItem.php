@@ -27,7 +27,6 @@ class SortItem extends DataObject
     ];
 
     private static $indexes = [
-        'Title' => true,
         'SortOrder' => true,
     ];
 
