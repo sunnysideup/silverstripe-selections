@@ -37,10 +37,7 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
-    "bin": [
-        "bin/sake-npm-build-selections.sh",
-        "bin/sake-npm-watch-selections.sh"
-    ],
+    "bin": [],
     "authors": [
         {
             "name": "Nicolaas Thiemen Francken",
