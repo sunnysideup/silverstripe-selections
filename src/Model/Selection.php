@@ -148,7 +148,7 @@ class Selection extends DataObject
                 'ModelClassName',
                 $this->fieldLabel('ModelClassName'),
                 Injector::inst()->get(ClassAndFieldInfo::class)->getListOfClasses(
-                    array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'),
+                    array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
                 )
             )->setDescription(
                 '
