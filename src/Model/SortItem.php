@@ -6,7 +6,9 @@ namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
+use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 
@@ -70,22 +72,24 @@ class SortItem extends DataObject
 
     public function getCMSFields()
     {
-        $fieldNameField = OptionsetField::create(
-            'FieldName',
-            'Select Field',
-            $this->getFieldsNamesAvailable()
-        );
+
         if (!$this->FieldName) {
             return FieldList::create(
-                $fieldNameField
+                GroupedDropdownField::create(
+                    'FieldName',
+                    'Select Field',
+                    $this->getFieldsNamesAvailable(true)
+                )
             );
         }
         $fields = parent::getCMSFields();
         $fields->replaceField(
             'FieldName',
-            $fieldNameField
-                ->setTitle('Selected Field')
-                ->performDisabledTransformation()
+            ReadonlyField::create(
+                'FieldNameNice',
+                'Selected Field',
+                $this->getFieldNameNice()
+            )
         );
         $fields->replaceField(
             'SortDirection',
@@ -101,14 +105,14 @@ class SortItem extends DataObject
 
 
 
-    protected function getFieldsNamesAvailable(): array
+    protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $selection = $this->Selection();
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
-                $selection,
                 $selection->ModelClassName,
-                ['db']
+                ['db'],
+                $grouped ? ['grouped' => true] : []
             );
     }
 

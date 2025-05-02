@@ -7,7 +7,9 @@ namespace Sunnysideup\Selections\Model;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
+use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
@@ -57,22 +59,23 @@ class DisplayItem extends DataObject
 
     public function getCMSFields()
     {
-        $fieldNameField = OptionsetField::create(
-            'FieldName',
-            'Select Field',
-            $this->getFieldsNamesAvailable()
-        );
         if (!$this->FieldName) {
             return FieldList::create(
-                $fieldNameField
+                GroupedDropdownField::create(
+                    'FieldName',
+                    'Select Field',
+                    $this->getFieldsNamesAvailable(true)
+                )
             );
         }
         $fields = parent::getCMSFields();
         $fields->replaceField(
             'FieldName',
-            $fieldNameField
-                ->setTitle('Selected Field')
-                ->performDisabledTransformation()
+            ReadonlyField::create(
+                'FieldNameNice',
+                'Selected Field',
+                $this->getFieldNameNice()
+            )
         );
         $fields->replaceField(
             'DisplayType',
@@ -86,17 +89,14 @@ class DisplayItem extends DataObject
         $fields->remove('SortOrder');
     }
 
-    protected function getFieldsNamesAvailable(): array
+    protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $selection = $this->Selection();
-        $list = Injector::inst()->get(ClassAndFieldInfo::class)
+        return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
-                $selection,
                 $selection->ModelClassName,
                 ['db', 'casting', 'has_one', 'belongs']
             );
-        $exclude = $this->Selection()->DisplayItem()->exclude(['ID' => $this->ID])->map('FieldName', 'FieldName')->toArray();
-        return array_diff($list, $exclude);
     }
 
 

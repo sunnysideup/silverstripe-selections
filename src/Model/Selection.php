@@ -10,6 +10,7 @@ use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\GridField\GridField;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldDataColumns;
+use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
@@ -120,10 +121,12 @@ class Selection extends DataObject
 
     protected function getSelectClassNameField(?bool $withInstructions = true, ?bool $onlyShowSelectedvalue = false): OptionsetField
     {
-        $field = OptionsetField::create(
+        $field = GroupedDropdownField::create(
             'ModelClassName',
             $this->fieldLabel('ModelClassName'),
-            $this->getListOfClasses()
+            $this->getListOfClasses(
+                ['Grouped' => true]
+            )
         );
         if ($withInstructions) {
             $field->setDescription(

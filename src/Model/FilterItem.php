@@ -6,6 +6,7 @@ namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\GraphQL\Schema\Field\Field;
@@ -104,14 +105,13 @@ class FilterItem extends DataObject
 
     public function getCMSFields()
     {
-        $fieldNameField = OptionsetField::create(
-            'FieldName',
-            'Select Field',
-            $this->getFieldsNamesAvailable()
-        );
         if (!$this->FieldName) {
             return FieldList::create(
-                $fieldNameField
+                GroupedDropdownField::create(
+                    'FieldName',
+                    'Select Field',
+                    $this->getFieldsNamesAvailable(true)
+                )
             );
         }
         $fields = parent::getCMSFields();
@@ -141,14 +141,14 @@ class FilterItem extends DataObject
         return $fields;
     }
 
-    protected function getFieldsNamesAvailable(): array
+    protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $selection = $this->Selection();
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
-                $selection,
                 $selection->ModelClassName,
-                ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many']
+                ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
+                $grouped ? ['grouped' => true] : []
             );
     }
 
