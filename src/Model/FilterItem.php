@@ -13,7 +13,15 @@ use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\GraphQL\Schema\Field\Field;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DB;
+use SilverStripe\ORM\FieldType\DBBoolean;
+use SilverStripe\ORM\FieldType\DBDate;
+use SilverStripe\ORM\FieldType\DBDatetime;
+use SilverStripe\ORM\FieldType\DBEnum;
 use SilverStripe\ORM\FieldType\DBField;
+use SilverStripe\ORM\FieldType\DBFloat;
+use SilverStripe\ORM\FieldType\DBInt;
+use SilverStripe\ORM\FieldType\DBString;
+use SilverStripe\ORM\FieldType\DBTime;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
@@ -24,8 +32,8 @@ class FilterItem extends DataObject
     private static $db = [
         'FieldName' => 'Varchar(255)',
         'FilterType' => 'Varchar(255)',
-        'FilterValue' => 'Varchar(255)',
         'IsEmpty' => 'Boolean',
+        'FilterValue' => 'Varchar(255)',
         'SelectOpposite' => 'Boolean',
     ];
 
@@ -49,6 +57,9 @@ class FilterItem extends DataObject
         'FilterValue' => 'Filter Value',
         'FieldNameCalculated' => 'Key for filtering',
         'FieldValueCalculated' => 'Value for filtering',
+        'IsEmpty' => 'Filter for empty values',
+        'SelectOpposite' => 'Flip: Select records not matching the filter',
+        'FilterType' => 'Filter Type',
     ];
 
     private static $casting = [
@@ -97,7 +108,15 @@ class FilterItem extends DataObject
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
-        return $list[$this->FilterType] ?? $this->FilterType ?: 'ERROR';
+        return $list[$this->FilterType] ?? $this->FilterType ?: 'Exact Match';
+    }
+
+    public function getFilterValueNice(): string
+    {
+        if ($this->IsEmpty) {
+            return '[Empty Value]';
+        }
+        return $this->FilterValue ?: 'filter value not set';
     }
 
     public function getFieldNameCalculated(): string
@@ -112,24 +131,70 @@ class FilterItem extends DataObject
         return $v;
     }
 
-    public function getFieldValueCalculated(): string|array
+    public function getFieldValueCalculated(?bool $getInstruction = false): string|array|DBField
     {
         if ($this->IsEmpty || !$this->FilterValue) {
             return [null, '', 0];
         }
-        return $this->FilterValue;
+        $type = $this->getFieldTypeObject();
+        $v = trim((string) $this->FilterValue);
+        switch ($type) {
+            case 'Boolean':
+            case DBBoolean::class:
+                $v = strtolower($v);
+                if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
+                    $v = true;
+                } else {
+                    $v = false;
+                }
+                $i = 'Please enter one of these: "yes" or "no", "true" or "false", "1" or "0".';
+                break;
+            case 'Int':
+            case DBInt::class:
+                $v = (int) $v;
+                $i = 'Please enter a whole number, e.g. "1" or "2" or "3" or "-10".';
+                break;
+            case 'Float':
+            case DBFloat::class:
+                $v = (float) $v;
+                $i = 'Please enter a number, e.g. "1" or "2" or "3" or "-10" or "1.5" or "2.5" or "3.5".';
+                break;
+            case 'Date':
+            case DBDate::class:
+                $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
+                $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
+                break;
+            case 'Time':
+            case DBTime::class:
+                $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
+                $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
+                break;
+            case 'Datetime':
+            case DBDatetime::class:
+                $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
+                $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
+                break;
+            case 'Varchar':
+            case 'Text':
+            case 'HTMLText':
+            case 'HTMLVarchar':
+            case 'DBHTMLText':
+            case DBString::class:
+            default:
+                // do nothing
+                $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
+        }
+        return $v;
+    }
+
+    public function getFieldValueAdditionalInformation(): string
+    {
+        return $this->getFieldValueCalculated(true);
     }
 
     public function getCMSFields()
     {
-        if (! $this->exists()) {
-            return FieldList::create(
-                LiteralField::create(
-                    'Info',
-                    '<p>Please create first.</p>'
-                )
-            );
-        }
+
         if (!$this->FieldName) {
             return FieldList::create(
                 OptionsetGroupedField::create(
@@ -156,20 +221,32 @@ class FilterItem extends DataObject
                 $this->getFilterTypesAvailable()
             )->setEmptyString('Exact Match')
         );
-        $obj = $this->getFieldTypeObject();
-        $class = get_class($obj);
-        $obj = $class::create(
-            'FilterValue',
-        );
-        $obj->setName('FilterValue');
-        $newField = $obj->scaffoldFormField(
-            'Value for filtering',
-        );
-        $fields->replaceField(
-            'FilterValue',
-            $newField
-        );
+        if ($this->IsEmpty) {
+            $fields->replaceField(
+                'FilterValue',
+                ReadonlyField::create(
+                    'FilterValueNice',
+                    $this->fieldLabel('FilterValue'),
+                    'Filter for empty values'
+                )
+            );
+        } else {
+            $fields->dataFieldByName('FilterValue')
+                ->setDescription($this->getFieldValueAdditionalInformation());
+        }
         return $fields;
+    }
+
+    public function onBeforeWrite(): void
+    {
+        parent::onBeforeWrite();
+        if ($this->FilterValue) {
+            $this->FilterValue = str_replace(
+                ['"', "'", '(', ')'],
+                '',
+                $this->FilterValue
+            );
+        }
     }
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
@@ -191,7 +268,6 @@ class FilterItem extends DataObject
         return [
             'PartialMatch' => 'Contains',
             'StartsWith' => 'Starts With',
-            'ExactMatch' => 'Equals',
             'GreaterThan' => 'Greater Than',
             'GreaterThanOrEqual' => 'Greater Than or Equal',
             'LessThan' => 'Less Than',

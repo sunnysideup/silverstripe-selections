@@ -78,11 +78,13 @@ class SortItem extends DataObject
         return $list[$this->FieldName] ?? $this->FieldName;
     }
 
-    public function getFilterTypeNice(): string
+
+    public function getSortDirectionNice(): string
     {
-        $list = $this->getFilterTypesAvailable();
-        return $list[$this->FilterType] ?? $this->FilterType;
+        $list = $this->getSortDirectionsAvailable();
+        return $list[$this->SortDirection] ?? $this->SortDirection ?: 'ASC';
     }
+
 
 
     public function getCMSFields()
@@ -114,7 +116,7 @@ class SortItem extends DataObject
                 $this->getSortDirectionsAvailable()
             )
         );
-        $fields->remove('SortOrder');
+        $fields->removeByName('SortOrder');
         return $fields;
     }
 

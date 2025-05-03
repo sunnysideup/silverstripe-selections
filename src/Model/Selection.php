@@ -6,19 +6,26 @@ namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\AnyField\Form\ManyAnyField;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\FieldGroup;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\GridField\GridField;
+use SilverStripe\Forms\GridField\GridFieldAddExistingAutocompleter;
+use SilverStripe\Forms\GridField\GridFieldAddNewButton;
 use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldDataColumns;
+use SilverStripe\Forms\GridField\GridFieldDeleteAction;
+use SilverStripe\Forms\GridField\GridFieldFilterHeader;
 use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
+use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
+use UndefinedOffset\SortableGridField\Forms\GridFieldSortableRows;
 
 class Selection extends DataObject
 {
@@ -30,8 +37,8 @@ class Selection extends DataObject
         'ModelClassName' => 'Varchar(255)',
         'Title' => 'Varchar(255)',
         'Description' => 'Text',
-        'StartFromRecordNumber' => 'Int',
         'LimitTo' => 'Int',
+        'StartFromRecordNumber' => 'Int',
         'FilterAny' => 'Boolean',
     ];
 
@@ -48,6 +55,17 @@ class Selection extends DataObject
 
     private static $field_labels = [
         'ModelClassName' => 'Record Type',
+    ];
+
+    private static $summary_fields = [
+        'ModelClassNameNice' => 'Record Type',
+        'NumberOfRecords' => 'Matches',
+    ];
+
+    private static $casting = [
+        'ModelClassNameNice' => 'Varchar',
+        'NumberOfRecords' => 'Int',
+        'RawSqlInfo' => 'HTMLText',
     ];
 
     private static $default_sort = 'ID DESC';
@@ -79,6 +97,26 @@ class Selection extends DataObject
                 'ModelClassName',
                 $this->getSelectClassNameField(false, true)
             );
+            $limitTo = $fields->dataFieldByName('LimitTo');
+            $limitTo->setDescription(
+                'Leave empty (0) to show all records. Set to, for example, 10 to show only the first 10 records.'
+            );
+            $startFromRecordNumber = $fields->dataFieldByName('StartFromRecordNumber');
+            $startFromRecordNumber->setDescription(
+                'Leave empty (0) to start from the first record.'
+            );
+            $fields->removeByName('LimitTo');
+            $fields->removeByName('StartFromRecordNumber');
+            $fields->addFieldsToTab(
+                'Root.Main',
+                [
+                    new FieldGroup(
+                        $limitTo,
+                        $startFromRecordNumber
+                    ),
+                ]
+            );
+
             $fields->addFieldsToTab(
                 'Root.FilterSelection',
                 [
@@ -87,19 +125,22 @@ class Selection extends DataObject
                 'FilterSelection'
             );
             $fields->addFieldsToTab(
-                'Root.Main',
+                'Root.Matches',
                 [
                     $gf = GridField::create(
                         'Results',
                         'Matching Records',
                         $this->getSelectionDataList(),
-                        GridFieldConfig_RecordEditor::create(10)
+                        $config = GridFieldConfig_RecordEditor::create()
                     ),
                 ],
             );
+            $config->removeComponentsByType(GridFieldAddNewButton::class);
+            $config->removeComponentsByType(GridFieldDeleteAction::class);
+            $gf->setDescription('Note that limits are starting records are applied to the list above.');
             $displayFields = $this->getSelectionDisplayFields();
             if (!empty($displayFields)) {
-                $gf->getConfig()
+                $config
                     ->getComponentByType(GridFieldDataColumns::class)
                     ->setDisplayFields($displayFields);
             }
@@ -122,6 +163,27 @@ class Selection extends DataObject
         //         ManyAnyField::create('DisplaySelection', 'Displays'),
         //     ]
         // );
+        foreach (
+            [
+                'SortSelection',
+                'FilterSelection',
+                'DisplaySelection',
+            ] as $name
+        ) {
+            $myField = $fields->dataFieldByName($name);
+            $config = $myField->getConfig();
+            $config->removeComponentsByType(GridFieldFilterHeader::class);
+            $config->removeComponentsByType(GridFieldAddExistingAutocompleter::class);
+            $config->removeComponentsByType(GridFieldDeleteAction::class);
+            $config->addComponent(new GridFieldDeleteAction(false));
+            if ($name !== 'FilterSelection') {
+                $config->addComponent(new GridFieldSortableRows('SortOrder'));
+            }
+        }
+        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
+            $this,
+            $fields,
+        );
         return $fields;
     }
 
@@ -171,6 +233,23 @@ class Selection extends DataObject
         return 'ERROR: Class not found';
     }
 
+    public function getNumberOfRecords(): int
+    {
+        $list = $this->getSelectionDataList();
+        if ($list && $list->exists()) {
+            return $list->count();
+        }
+        return 0;
+    }
+
+    public function getRawSqlInfo(): string
+    {
+        $list = $this->getSelectionDataList();
+        if ($list) {
+            return $list->sql();
+        }
+        return 'no sql available';
+    }
 
     public function getRecordSingleton()
     {
@@ -192,13 +271,13 @@ class Selection extends DataObject
                 $list = $list->filter($this->getSelectionFilterArray());
             }
         }
-        $sort = $this->getSelectionSort();
+        $sort = $this->getSelectionSortArray();
         if (!empty($sort)) {
-            $list = $list->sort($this->getSelectionSortArray());
+            $list = $list->sort($sort);
         }
         if ($this->StartFromRecordNumber) {
             $limit = $this->LimitTo ?: 99999999;
-            $list = $list->limit($this->LimitTo, ($this->StartFromRecordNumber - 1));
+            $list = $list->limit($limit, ($this->StartFromRecordNumber - 1));
         } elseif ($this->LimitTo) {
             $list = $list->limit($this->LimitTo);
         }
@@ -219,10 +298,13 @@ class Selection extends DataObject
         return $filterArray;
     }
 
-    public function getSelectionSort(): array
+    public function getSelectionSortArray(): array
     {
         $sortArray = [];
         foreach ($this->SortSelection() as $sort) {
+            if (!$sort->FieldName || !$sort->SortDirection) {
+                continue;
+            }
             $sortArray[$sort->FieldName] = $sort->SortDirection;
         }
         return $sortArray;

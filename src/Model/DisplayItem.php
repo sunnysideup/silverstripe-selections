@@ -18,6 +18,35 @@ class DisplayItem extends DataObject
 {
     private static $table_name = 'SelectionsDisplayItem';
 
+    private static $casted_variable_options = [
+        'CSSClasses' => '',
+        'ATT' => '',
+        'CDATA' => '',
+        'HTML' => '',
+        'HTMLATT' => '',
+        'JS' => '',
+        'RAW' => 'Value is returned as is, no formatting applied.',
+        'RAWURLATT' => '',
+        'URLATT' => '',
+        'XML' => '',
+        'ProcessedRAW' => '',
+        'LimitCharacters' => '',
+        'LimitCharactersToClosestWord' => '',
+        'LimitWordCount' => '',
+        'LowerCase' => '',
+        'UpperCase' => '',
+        'Plain' => 'Strips all HTML tags and entities, returning plain text only.',
+        'BigSummary' => 'Provides a longer summary from content, usually a few sentences.',
+        'ContextSummary' => '',
+        'FirstParagraph' => 'Extracts and returns the first paragraph from HTML content.',
+        'FirstSentence' => 'Extracts and returns the first sentence from the content.',
+        'LimitSentences' => '',
+        'Summary' => 'Provides a short summary of the content, similar to an excerpt.',
+        'Nice' => 'Nicer version of the value.',
+        'AbsoluteLinks' => '',
+    ];
+
+
     private static $db = [
         'Title' => 'Varchar(255)',
         'FieldName' => 'Varchar(255)',
@@ -100,9 +129,10 @@ class DisplayItem extends DataObject
                 'Format Type',
                 $this->getDisplayTypesAvailable()
             )
-                ->setEmptyString('-- no specific formatting --')
+                ->setEmptyString('-- no specific formatting (recommended) --')
         );
-        $fields->remove('SortOrder');
+        $fields->removeByName('SortOrder');
+        return $fields;
     }
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
@@ -120,12 +150,34 @@ class DisplayItem extends DataObject
     protected function getDisplayTypesAvailable(): array
     {
         $obj = $this->getFieldTypeObject();
-        $vars = Config::inst()->get($obj->ClassName, 'casting') ?: [];
-        return array_keys($vars);
+        if ($obj) {
+            $options = [];
+            $vars = Config::inst()->get(get_class($obj), 'casting') ?: [];
+            $optionsAvailable = Config::inst()->get(self::class, 'casted_variable_options') ?: [];
+            foreach ($vars as $key => $value) {
+                if (!isset($optionsAvailable[$key])) {
+                    $options[$key] = $key;
+                } elseif (!empty($optionsAvailable[$key])) {
+                    $options[$key] = $key . ': ' . $optionsAvailable[$key];
+                } else {
+                    // do nothing
+                }
+            }
+            return $options;
+        }
+        return [];
     }
 
     protected function getFieldTypeObject(): DBField
     {
         return $this->Selection()->getFieldTypeObject($this->FieldName);
+    }
+
+    public function onBeforeWrite(): void
+    {
+        parent::onBeforeWrite();
+        if (!$this->Title) {
+            $this->Title = $this->getFieldNameNice();
+        }
     }
 }
