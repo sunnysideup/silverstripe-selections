@@ -22,6 +22,7 @@ use SilverStripe\ORM\FieldType\DBFloat;
 use SilverStripe\ORM\FieldType\DBInt;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
+use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
@@ -65,6 +66,7 @@ class FilterItem extends DataObject
     private static $casting = [
         'Title' => 'Varchar',
         'FieldNameNice' => 'Varchar',
+        'FieldType' => 'Varchar',
         'FilterTypeNice' => 'Varchar',
         'FieldNameCalculated' => 'Varchar',
         'FieldValueCalculated' => 'Varchar',
@@ -105,6 +107,15 @@ class FilterItem extends DataObject
         return $list[$this->FieldName] ?? $this->FieldName ?: 'ERROR';
     }
 
+    public function getFieldType(): string
+    {
+        $obj = $this->getFieldTypeObject();
+        if ($obj instanceof DBField) {
+            return get_class($obj);
+        }
+        return '';
+    }
+
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
@@ -131,12 +142,17 @@ class FilterItem extends DataObject
         return $v;
     }
 
-    public function getFieldValueCalculated(?bool $getInstruction = false): string|array|DBField
+    public function getFieldValueCalculated(?bool $getInstruction = false): mixed
     {
-        if ($this->IsEmpty || !$this->FilterValue) {
-            return [null, '', 0];
+        if (!$getInstruction) {
+            if ($this->IsEmpty || !$this->FilterValue) {
+                return [null, '', 0];
+            }
         }
         $type = $this->getFieldTypeObject();
+        if (is_object($type)) {
+            $type = get_class($type);
+        }
         $v = trim((string) $this->FilterValue);
         switch ($type) {
             case 'Boolean':
@@ -183,6 +199,9 @@ class FilterItem extends DataObject
             default:
                 // do nothing
                 $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
+        }
+        if ($getInstruction) {
+            return $i;
         }
         return $v;
     }
@@ -234,6 +253,10 @@ class FilterItem extends DataObject
             $fields->dataFieldByName('FilterValue')
                 ->setDescription($this->getFieldValueAdditionalInformation());
         }
+        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
+            $this,
+            $fields,
+        );
         return $fields;
     }
 

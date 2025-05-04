@@ -54,7 +54,11 @@ class Selection extends DataObject
     ];
 
     private static $field_labels = [
+        'Title' => 'Name of selection',
         'ModelClassName' => 'Record Type',
+        'ModelClassNameNice' => 'Record Type',
+        'LimitTo' => 'Maximum number of records (0 = all)',
+        'FilterAny' => 'Include records that match any of the filters (instead of all)',
     ];
 
     private static $summary_fields = [
@@ -137,7 +141,7 @@ class Selection extends DataObject
             );
             $config->removeComponentsByType(GridFieldAddNewButton::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
-            $gf->setDescription('Note that limits are starting records are applied to the list above.');
+            $gf->setDescription('Note that limits and the starting records are not applied to the list above.');
             $displayFields = $this->getSelectionDisplayFields();
             if (!empty($displayFields)) {
                 $config
@@ -165,12 +169,13 @@ class Selection extends DataObject
         // );
         foreach (
             [
-                'SortSelection',
-                'FilterSelection',
-                'DisplaySelection',
-            ] as $name
+                'FilterSelection' => 'Here you select the filters that will be used to filter the records. If you do not select any filters, all records will be shown.',
+                'SortSelection' => 'Sorts first by the first item, then by the second item, etc.',
+                'DisplaySelection' => 'Here you select the fields shown in the list. If you do not select any fields, a default selection of fields will be used.',
+            ] as $name => $description
         ) {
             $myField = $fields->dataFieldByName($name);
+            $myField->setDescription($description);
             $config = $myField->getConfig();
             $config->removeComponentsByType(GridFieldFilterHeader::class);
             $config->removeComponentsByType(GridFieldAddExistingAutocompleter::class);
@@ -180,6 +185,11 @@ class Selection extends DataObject
                 $config->addComponent(new GridFieldSortableRows('SortOrder'));
             }
         }
+        $fields->dataFieldByName('Description')
+            ->setRows(3)
+            ->setDescription(
+                'Optional space to enter a more detailed description of this selection.'
+            );
         Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
             $this,
             $fields,
@@ -334,5 +344,15 @@ class Selection extends DataObject
         $singleton = $this->getModelSingleton();
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->FindFieldTypeObject($singleton, $fieldName);
+    }
+
+    protected function onBeforeWrite(): void
+    {
+        parent::onBeforeWrite();
+        if ($this->HasValidClassName()) {
+            if (!$this->Title) {
+                $this->Title = $this->getModelClassNameNice();
+            }
+        }
     }
 }
