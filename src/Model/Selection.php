@@ -25,6 +25,7 @@ use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
+use Sunnysideup\Selections\Admin\SelectionsAdmin;
 use UndefinedOffset\SortableGridField\Forms\GridFieldSortableRows;
 
 class Selection extends DataObject
@@ -128,17 +129,20 @@ class Selection extends DataObject
                 ],
                 'FilterSelection'
             );
-            $fields->addFieldsToTab(
-                'Root.Matches',
-                [
-                    $gf = GridField::create(
-                        'Results',
-                        'Matching Records',
-                        $this->getSelectionDataList(),
-                        $config = GridFieldConfig_RecordEditor::create()
-                    ),
-                ],
-            );
+            $list = $this->getSelectionDataList();
+            if ($list) {
+                $fields->addFieldsToTab(
+                    'Root.Matches',
+                    [
+                        $gf = GridField::create(
+                            'Results',
+                            'Matching Records',
+                            $list,
+                            $config = GridFieldConfig_RecordEditor::create()
+                        ),
+                    ],
+                );
+            }
             $config->removeComponentsByType(GridFieldAddNewButton::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
             $gf->setDescription('Note that limits and the starting records are not applied to the list above.');
@@ -269,9 +273,12 @@ class Selection extends DataObject
         return null;
     }
 
-    public function getSelectionDataList(): DataList
+    public function getSelectionDataList(): ?DataList
     {
         $className = $this->ModelClassName;
+        if (!$className || !class_exists($className)) {
+            return null;
+        }
         $list = $className::get();
         $filter = $this->getSelectionFilterArray();
         if (!empty($filter)) {
@@ -354,5 +361,26 @@ class Selection extends DataObject
                 $this->Title = $this->getModelClassNameNice();
             }
         }
+    }
+
+    public function CMSEditLink(): string
+    {
+        return Injector::inst()->get(SelectionsAdmin::class)
+            ->getCMSEditLinkForManagedDataObject($this);
+    }
+
+    /**
+     * This will convert:
+     * /item/1/edit
+     * /item/0
+     * /item/2/edit?
+     * ...into:
+     * /item/new
+     *
+     * @return string
+     */
+    public function CMSAddLink(): string
+    {
+        return  preg_replace('#/item/\d+(/edit)?/?$#', '/item/new',  $this->CMSEditLink());
     }
 }
