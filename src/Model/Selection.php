@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\AnyField\Form\ManyAnyField;
+use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldGroup;
 use SilverStripe\Forms\FieldList;
@@ -30,6 +31,15 @@ use UndefinedOffset\SortableGridField\Forms\GridFieldSortableRows;
 
 class Selection extends DataObject
 {
+
+    protected static $selection_cache_var = [];
+    public static function selection_cache($id)
+    {
+        if (!isset(self::$selection_cache_var[$id])) {
+            self::$selection_cache_var[$id] = self::get()->byID($id);
+        }
+        return self::$selection_cache_var[$id];
+    }
 
 
     private static $table_name = 'SelectionsSelection';
@@ -331,7 +341,7 @@ class Selection extends DataObject
     {
         $sortArray = [];
         foreach ($this->DisplaySelection() as $display) {
-            $displayType = $display->DisplayType ? ':' . $display->DisplayType : '';
+            $displayType = $display->DisplayType ? '.' . $display->DisplayType : '';
             $sortArray[$display->FieldName . $displayType] = $display->Title;
         }
         return $sortArray;
@@ -351,6 +361,15 @@ class Selection extends DataObject
         $singleton = $this->getModelSingleton();
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->FindFieldTypeObject($singleton, $fieldName);
+    }
+
+    public function getFieldTypeObjectName(string $fieldName): string
+    {
+        $obj = $this->getFieldTypeObject($fieldName);
+        if ($obj) {
+            return ClassAndFieldInfo::standard_short_field_type_name($obj, true);
+        }
+        return 'ERROR: Field ' . $fieldName . 'not found';
     }
 
     protected function onBeforeWrite(): void

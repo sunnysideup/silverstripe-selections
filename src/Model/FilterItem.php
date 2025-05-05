@@ -104,16 +104,12 @@ class FilterItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        return $list[$this->FieldName] ?? $this->FieldName ?: 'ERROR';
+        return $list[$this->FieldName] ?? (string) $this->FieldName ?: 'ERROR';
     }
 
     public function getFieldType(): string
     {
-        $obj = $this->getFieldTypeObject();
-        if ($obj instanceof DBField) {
-            return get_class($obj);
-        }
-        return '';
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
     public function getFilterTypeNice(): string
@@ -274,7 +270,7 @@ class FilterItem extends DataObject
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
-        $selection = $this->Selection();
+        $selection = Selection::selection_cache($this->SelectionID);
         if (!$selection->exists() || !$selection->ModelClassName) {
             return [];
         }
@@ -298,8 +294,8 @@ class FilterItem extends DataObject
         ];
     }
 
-    protected function getFieldTypeObject(): DBField
+    protected function getFieldTypeObject(): ?DBField
     {
-        return $this->Selection()->getFieldTypeObject($this->FieldName);
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
     }
 }

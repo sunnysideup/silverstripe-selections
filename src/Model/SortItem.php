@@ -10,6 +10,7 @@ use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
+use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
@@ -75,7 +76,7 @@ class SortItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        return $list[$this->FieldName] ?? $this->FieldName;
+        return $list[$this->FieldName] ?? $this->FieldName ?: 'ERROR: Field not found';
     }
 
 
@@ -117,6 +118,10 @@ class SortItem extends DataObject
             )
         );
         $fields->removeByName('SortOrder');
+        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
+            $this,
+            $fields,
+        );
         return $fields;
     }
 
@@ -124,7 +129,10 @@ class SortItem extends DataObject
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
-        $selection = $this->Selection();
+        $selection = Selection::selection_cache($this->SelectionID);
+        if (!$selection) {
+            return [];
+        }
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection->ModelClassName,

@@ -11,6 +11,7 @@ use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
+use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 
@@ -46,6 +47,10 @@ class DisplayItem extends DataObject
         'AbsoluteLinks' => '',
     ];
 
+    private static $standard_formats = [
+        'Nice' => 'Varchar',
+    ];
+
 
     private static $db = [
         'Title' => 'Varchar(255)',
@@ -78,6 +83,7 @@ class DisplayItem extends DataObject
 
     private static $casting = [
         'FieldNameNice' => 'Varchar',
+        'FieldTypeNice' => 'Varchar',
     ];
 
     private static array $class_and_field_inclusion_exclusion_schema = [
@@ -99,7 +105,12 @@ class DisplayItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        return $list[$this->FieldName] ?? $this->FieldName;
+        return $list[$this->FieldName] ?? (string) $this->FieldName ?: 'ERROR: Field not found';
+    }
+
+    public function getFieldTypeNice(): string
+    {
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
     public function getCMSFields()
@@ -132,12 +143,19 @@ class DisplayItem extends DataObject
                 ->setEmptyString('-- no specific formatting (recommended) --')
         );
         $fields->removeByName('SortOrder');
+        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
+            $this,
+            $fields,
+        );
         return $fields;
     }
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
-        $selection = $this->Selection();
+        $selection = Selection::selection_cache($this->SelectionID);
+        if (!$selection) {
+            return [];
+        }
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection->ModelClassName,
@@ -153,8 +171,14 @@ class DisplayItem extends DataObject
         if ($obj) {
             $options = [];
             $vars = Config::inst()->get(get_class($obj), 'casting') ?: [];
+            $standards = Config::inst()->get(self::class, 'standard_formats') ?: [];
+            foreach (array_keys($standards) as $method) {
+                if ($obj->hasMethod($method)) {
+                    $vars[$method] = $method;
+                }
+            }
             $optionsAvailable = Config::inst()->get(self::class, 'casted_variable_options') ?: [];
-            foreach ($vars as $key => $value) {
+            foreach (array_keys($vars) as $key) {
                 if (!isset($optionsAvailable[$key])) {
                     $options[$key] = $key;
                 } elseif (!empty($optionsAvailable[$key])) {
@@ -168,10 +192,11 @@ class DisplayItem extends DataObject
         return [];
     }
 
-    protected function getFieldTypeObject(): DBField
+    protected function getFieldTypeObject(): ?DBField
     {
-        return $this->Selection()->getFieldTypeObject($this->FieldName);
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
     }
+
 
     public function onBeforeWrite(): void
     {
