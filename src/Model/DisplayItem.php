@@ -14,6 +14,7 @@ use SilverStripe\ORM\FieldType\DBField;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
+use Sunnysideup\Selections\Admin\SelectionsAdmin;
 
 class DisplayItem extends DataObject
 {
@@ -204,5 +205,11 @@ class DisplayItem extends DataObject
         if (!$this->Title) {
             $this->Title = $this->getFieldNameNice();
         }
+    }
+
+    public function CMSEditLink(): string
+    {
+        return Injector::inst()->get(SelectionsAdmin::class)
+            ->getCMSEditLinkForManagedDataObject($this);
     }
 }

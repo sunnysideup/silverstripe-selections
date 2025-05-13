@@ -13,6 +13,7 @@ use SilverStripe\ORM\DataObject;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
+use Sunnysideup\Selections\Admin\SelectionsAdmin;
 
 class SortItem extends DataObject
 {
@@ -147,5 +148,11 @@ class SortItem extends DataObject
             'ASC' => 'Ascending',
             'DESC' => 'Descending',
         ];
+    }
+
+    public function CMSEditLink(): string
+    {
+        return Injector::inst()->get(SelectionsAdmin::class)
+            ->getCMSEditLinkForManagedDataObject($this);
     }
 }

@@ -25,6 +25,7 @@ use SilverStripe\ORM\FieldType\DBTime;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
+use Sunnysideup\Selections\Admin\SelectionsAdmin;
 
 class FilterItem extends DataObject
 {
@@ -297,5 +298,11 @@ class FilterItem extends DataObject
     protected function getFieldTypeObject(): ?DBField
     {
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
+    }
+
+    public function CMSEditLink(): string
+    {
+        return Injector::inst()->get(SelectionsAdmin::class)
+            ->getCMSEditLinkForManagedDataObject($this);
     }
 }
