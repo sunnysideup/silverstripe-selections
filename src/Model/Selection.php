@@ -73,6 +73,8 @@ class Selection extends DataObject
     ];
 
     private static $summary_fields = [
+        'Created.Ago' => 'Created',
+        'Title' => 'Name',
         'ModelClassNameNice' => 'Record Type',
         'NumberOfRecords' => 'Matches',
     ];
