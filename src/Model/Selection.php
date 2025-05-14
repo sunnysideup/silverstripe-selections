@@ -44,6 +44,10 @@ class Selection extends DataObject
 
     private static $table_name = 'SelectionsSelection';
 
+    private static $singular_name = 'Record Selection';
+
+    private static $plural_name = 'Record Selections';
+
     private static $db = [
         'ModelClassName' => 'Varchar(255)',
         'Title' => 'Varchar(255)',
