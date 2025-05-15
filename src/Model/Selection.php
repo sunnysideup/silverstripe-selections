@@ -63,6 +63,7 @@ class Selection extends DataObject
         'DisplaySelection' => DisplayItem::class,
     ];
 
+
     private static $indexes = [
         'Title' => true,
         'ModelClassName' => true
