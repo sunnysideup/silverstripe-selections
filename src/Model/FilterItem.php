@@ -142,7 +142,7 @@ class FilterItem extends DataObject
     public function getFieldValueCalculated(?bool $getInstruction = false): mixed
     {
         if (!$getInstruction) {
-            if ($this->IsEmpty || !$this->FilterValue) {
+            if ($this->IsEmpty) {
                 return [null, '', 0];
             }
         }
@@ -266,6 +266,9 @@ class FilterItem extends DataObject
                 '',
                 $this->FilterValue
             );
+        }
+        if ($this->Empty) {
+            $this->FilterType = '';
         }
     }
 
