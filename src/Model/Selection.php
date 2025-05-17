@@ -162,7 +162,6 @@ class Selection extends DataObject
             }
             $config->removeComponentsByType(GridFieldAddNewButton::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
-            $gf->setDescription('Note that limits and the starting records are not applied to the list above.');
             $displayFields = $this->getSelectionDisplayFields();
             if (!empty($displayFields)) {
                 $config
