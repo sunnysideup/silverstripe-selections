@@ -386,6 +386,9 @@ class Selection extends DataObject
                 $this->Title = $this->getModelClassNameNice();
             }
         }
+        if ($this->Title && !$this->isInDB() || $this->isChanged('Title')) {
+            $this->Title = $this->ensureUniqueTitle((string) $this->Title);
+        }
     }
 
     public function CMSEditLink(): string
@@ -407,5 +410,24 @@ class Selection extends DataObject
     public function CMSAddLink(): string
     {
         return  preg_replace('#/item/\d+(/edit)?/?$#', '/item/new',  $this->CMSEditLink());
+    }
+
+    protected function ensureUniqueTitle(?string $baseTitle = null): string
+    {
+        if (!$baseTitle) {
+            return '';
+        }
+        $suffix = 1;
+        $newTitle = $baseTitle;
+
+        while (
+            $suffix < 99 &&
+            Selection::get()->filter(['Title' => $newTitle])->exclude(['ID' => $this->ID ?: 0])->exists()
+        ) {
+            $suffix++;
+            $newTitle = $baseTitle . ' #' . $suffix;
+        }
+
+        return $newTitle;
     }
 }

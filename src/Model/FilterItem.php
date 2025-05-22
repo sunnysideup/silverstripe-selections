@@ -16,10 +16,13 @@ use SilverStripe\ORM\DB;
 use SilverStripe\ORM\FieldType\DBBoolean;
 use SilverStripe\ORM\FieldType\DBDate;
 use SilverStripe\ORM\FieldType\DBDatetime;
+use SilverStripe\ORM\FieldType\DBDecimal;
+use SilverStripe\ORM\FieldType\DBDouble;
 use SilverStripe\ORM\FieldType\DBEnum;
 use SilverStripe\ORM\FieldType\DBField;
 use SilverStripe\ORM\FieldType\DBFloat;
 use SilverStripe\ORM\FieldType\DBInt;
+use SilverStripe\ORM\FieldType\DBPercentage;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
@@ -141,11 +144,6 @@ class FilterItem extends DataObject
 
     public function getFieldValueCalculated(?bool $getInstruction = false): mixed
     {
-        if (!$getInstruction) {
-            if ($this->IsEmpty) {
-                return [null, '', 0];
-            }
-        }
         $type = $this->getFieldTypeObject();
         if (is_object($type)) {
             $type = get_class($type);
@@ -154,37 +152,68 @@ class FilterItem extends DataObject
         switch ($type) {
             case 'Boolean':
             case DBBoolean::class:
-                $v = strtolower($v);
-                if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
-                    $v = true;
+                if ($this->IsEmpty) {
+                    $v = [null];
                 } else {
-                    $v = false;
+                    $v = strtolower($v);
+                    if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
+                        $v = true;
+                    } else {
+                        $v = false;
+                    }
                 }
                 $i = 'Please enter one of these: "yes" or "no", "true" or "false", "1" or "0".';
                 break;
             case 'Int':
             case DBInt::class:
-                $v = (int) $v;
+                if ($this->IsEmpty) {
+                    $v = [null, 0];
+                } else {
+
+                    $v = (int) $v;
+                }
                 $i = 'Please enter a whole number, e.g. "1" or "2" or "3" or "-10".';
                 break;
             case 'Float':
+            case 'Decimal':
+            case 'Double':
+            case 'Percentage':
             case DBFloat::class:
-                $v = (float) $v;
+            case DBDecimal::class:
+            case DBDouble::class:
+            case DBPercentage::class:
+                if ($this->IsEmpty) {
+                    $v = [null, 0];
+                } else {
+                    $v = (float) $v;
+                }
                 $i = 'Please enter a number, e.g. "1" or "2" or "3" or "-10" or "1.5" or "2.5" or "3.5".';
                 break;
             case 'Date':
             case DBDate::class:
-                $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
+                if ($this->IsEmpty) {
+                    $v = [null];
+                } else {
+                    $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
+                }
                 $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
                 break;
             case 'Time':
             case DBTime::class:
-                $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
+                if ($this->IsEmpty) {
+                    $v = [null];
+                } else {
+                    $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
+                }
                 $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
                 break;
             case 'Datetime':
             case DBDatetime::class:
-                $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
+                if ($this->IsEmpty) {
+                    $v = [null];
+                } else {
+                    $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
+                }
                 $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
                 break;
             case 'Varchar':
@@ -194,7 +223,11 @@ class FilterItem extends DataObject
             case 'DBHTMLText':
             case DBString::class:
             default:
-                // do nothing
+                if ($this->IsEmpty) {
+                    $v = [null, ''];
+                } else {
+                    // do nothing
+                }
                 $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
         }
         if ($getInstruction) {
