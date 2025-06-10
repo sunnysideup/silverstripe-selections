@@ -308,7 +308,7 @@ class FilterItem extends DataObject
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $selection = Selection::selection_cache($this->SelectionID);
-        if (!$selection->exists() || !$selection->ModelClassName) {
+        if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
             return [];
         }
         return Injector::inst()->get(ClassAndFieldInfo::class)
