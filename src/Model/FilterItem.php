@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use BcMath\Number;
 use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\CheckboxField;
+use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\FormField;
 use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
+use SilverStripe\Forms\TextField;
 use SilverStripe\GraphQL\Schema\Field\Field;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\DB;
@@ -25,6 +31,7 @@ use SilverStripe\ORM\FieldType\DBInt;
 use SilverStripe\ORM\FieldType\DBPercentage;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
+use SilverStripe\ORM\Search\SearchContext;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
@@ -35,6 +42,7 @@ class FilterItem extends DataObject
     private static $table_name = 'SelectionsFilterItem';
 
     private static $db = [
+        'UseAdvancedFieldSelection' => 'Boolean(0)',
         'FieldName' => 'Varchar(255)',
         'FilterType' => 'Varchar(255)',
         'IsEmpty' => 'Boolean',
@@ -53,15 +61,17 @@ class FilterItem extends DataObject
     private static $summary_fields = [
         'FieldNameNice' => 'Field Name',
         'FilterTypeNice' => 'Filter Type',
-        'FilterValue' => 'Filter Value',
+        'FilterValueNice' => 'Filter Value',
     ];
 
     private static $field_labels = [
         'FieldNameNice' => 'Field Name',
         'FilterTypeNice' => 'Filter Type',
         'FilterValue' => 'Filter Value',
+        'FilterValueNice' => 'Filter Value (human readable)',
         'FieldNameCalculated' => 'Key for filtering',
         'FieldValueCalculated' => 'Value for filtering',
+        'FilterTypeCalculated' => 'Filter for ',
         'IsEmpty' => 'Filter for empty values',
         'SelectOpposite' => 'Flip: Select records not matching the filter',
         'FilterType' => 'Filter Type',
@@ -72,9 +82,12 @@ class FilterItem extends DataObject
         'FieldNameNice' => 'Varchar',
         'FieldType' => 'Varchar',
         'FilterTypeNice' => 'Varchar',
+        'FilterValueNice' => 'Varchar',
         'FieldNameCalculated' => 'Varchar',
         'FieldValueCalculated' => 'Varchar',
+        'FilterTypeCalculated' => 'Varchar',
     ];
+
     private static array $class_and_field_inclusion_exclusion_schema = [
         // 'only_include_models_with_cmseditlink' => true,
         // 'only_include_models_with_can_create' => false,
@@ -108,11 +121,20 @@ class FilterItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        return $list[$this->FieldName] ?? (string) $this->FieldName ?: 'ERROR';
+        foreach ($list as $mainGroup => $fields) {
+            if (isset($fields[$this->FieldName])) {
+                return $fields[$this->FieldName];
+            }
+        }
+        return (string) $this->FieldName ?: 'ERROR';
     }
 
     public function getFieldType(): string
     {
+        // print_r($this->getSearchFields());
+        if ($this->UseAdvancedFieldSelection !== true) {
+            return '';
+        }
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
@@ -124,17 +146,46 @@ class FilterItem extends DataObject
 
     public function getFilterValueNice(): string
     {
-        if ($this->IsEmpty) {
-            return '[Empty Value]';
+        if ($this->UseAdvancedFieldSelection !== true) {
+            $f = $this->getFieldValueCalculated(false, true);
+            if ($f instanceof FormField) {
+                $f->setValue($this->FilterValue);
+                if ($f->hasMethod('getFormattedValue')) {
+                    $filterValue = $f->getFormattedValue();
+                } elseif ($f->hasMethod('getSource')) {
+                    $source = $f->getSource();
+                    if (is_object($source)) {
+                        $source = $source->toArray();
+                    }
+                    $filterValue = $source[$this->FilterValue] ?? $this->FilterValue;
+                }
+            }
         }
-        return $this->FilterValue ?: 'filter value not set';
+        if ($this->IsEmpty) {
+            $filterValue = '[Empty Value]';
+        } else {
+            if (!isset($filterValue)) {
+                $filterValue = $this->getFieldValueCalculated();
+            }
+            if ($filterValue === 0 || $filterValue === '0' || $filterValue === false) {
+                $filterValue = 'NO, ZERO OR FALSE';
+            }
+            if ($filterValue === 1 || $filterValue === '1' || $filterValue === true) {
+                $filterValue = 'YES, TRUE OR ONE';
+            }
+        }
+        return $filterValue ?: 'filter value not set';
     }
 
     public function getFieldNameCalculated(): string
     {
         $v = (string) $this->FieldName;
-        if ($this->FilterType) {
-            $v .= ':' . $this->FilterType;
+        $filterType = $this->getFilterTypeCalculated();
+        if ($filterType === 'ExactMatchFilter') {
+            $filterType = 'ExactMatch';
+        }
+        if ($filterType && $filterType !== 'ExactMatch') {
+            $v .= ':' . $filterType;
         }
         if ($this->SelectOpposite) {
             $v .= ':NOT';
@@ -142,93 +193,145 @@ class FilterItem extends DataObject
         return $v;
     }
 
-    public function getFieldValueCalculated(?bool $getInstruction = false): mixed
+    public function getFilterTypeCalculated(): string
     {
-        $type = $this->getFieldTypeObject();
-        if (is_object($type)) {
-            $type = get_class($type);
+        if ($this->UseAdvancedFieldSelection !== true) {
+            $fields = $this->getSearchFilters();
+            if (!empty($fields[$this->FieldName]['filter'])) {
+                $v = $fields[$this->FieldName]['filter'];
+            }
+        } else {
+            $v = $this->FilterType;
         }
-        $v = trim((string) $this->FilterValue);
-        switch ($type) {
-            case 'Boolean':
-            case DBBoolean::class:
-                if ($this->IsEmpty) {
-                    $v = [null];
-                } else {
-                    $v = strtolower($v);
-                    if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
-                        $v = true;
-                    } else {
-                        $v = false;
-                    }
-                }
-                $i = 'Please enter one of these: "yes" or "no", "true" or "false", "1" or "0".';
-                break;
-            case 'Int':
-            case DBInt::class:
-                if ($this->IsEmpty) {
-                    $v = [null, 0];
-                } else {
+        return $v ?: 'ExactMatch';
+    }
 
-                    $v = (int) $v;
+
+    protected static $field_value_cache = [];
+
+    public function getFieldValueCalculated(?bool $getInstruction = false, ?bool $getField = false): mixed
+    {
+        $key = $this->ID;
+        if (isset(self::$field_value_cache[$key])) {
+            $v = self::$field_value_cache[$key]['v'];
+            $f = self::$field_value_cache[$key]['f'];
+            $i = self::$field_value_cache[$key]['i'];
+        } else {
+            if ($this->UseAdvancedFieldSelection !== true) {
+                $fields = $this->getSearchFields();
+                $f = $fields->fieldByName($this->FieldName);
+                $f->setName('FilterValue');
+                $v = trim((string) $this->FilterValue);
+                $i = '';
+            } else {
+                $type = $this->getFieldTypeObject();
+                if (is_object($type)) {
+                    $type = get_class($type);
                 }
-                $i = 'Please enter a whole number, e.g. "1" or "2" or "3" or "-10".';
-                break;
-            case 'Float':
-            case 'Decimal':
-            case 'Double':
-            case 'Percentage':
-            case DBFloat::class:
-            case DBDecimal::class:
-            case DBDouble::class:
-            case DBPercentage::class:
-                if ($this->IsEmpty) {
-                    $v = [null, 0];
-                } else {
-                    $v = (float) $v;
+                $v = trim((string) $this->FilterValue);
+                $f = TextField::create('FilterValue', 'Filter Value', $v);
+                switch ($type) {
+                    case 'Boolean':
+                    case DBBoolean::class:
+                        if ($this->IsEmpty) {
+                            $v = [null];
+                        } else {
+                            $v = strtolower($v);
+                            if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
+                                $v = true;
+                            } else {
+                                $v = false;
+                            }
+                            $f = OptionsetField::create(
+                                'FilterValue',
+                                'Filter Value',
+                                [
+                                    1 => 'Yes / True',
+                                    0 => 'No / False',
+                                ],
+                                $v ? 1 : 0
+                            )->setEmptyString('-- select yes or no --');
+                        }
+                        $i = 'Please enter one of these: "yes" or "no", "true" or "false", "1" or "0".';
+                        break;
+                    case 'Int':
+                    case DBInt::class:
+                        if ($this->IsEmpty) {
+                            $v = [null, 0];
+                        } else {
+
+                            $v = (int) $v;
+                        }
+                        $i = 'Please enter a whole number, e.g. "1" or "2" or "3" or "-10".';
+                        $f = NumericField::create('FilterValue', 'Filter Value', (string) $v);
+                        break;
+                    case 'Float':
+                    case 'Decimal':
+                    case 'Double':
+                    case 'Percentage':
+                    case DBFloat::class:
+                    case DBDecimal::class:
+                    case DBDouble::class:
+                    case DBPercentage::class:
+                        if ($this->IsEmpty) {
+                            $v = [null, 0];
+                        } else {
+                            $v = (float) $v;
+                        }
+                        $i = 'Please enter a number, e.g. "1" or "2" or "3" or "-10" or "1.5" or "2.5" or "3.5".';
+                        $f = NumericField::create('FilterValue', 'Filter Value', (string) $v);
+                        break;
+                    case 'Date':
+                    case DBDate::class:
+                        if ($this->IsEmpty) {
+                            $v = [null];
+                        } else {
+                            $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
+                        }
+                        $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
+                        break;
+                    case 'Time':
+                    case DBTime::class:
+                        if ($this->IsEmpty) {
+                            $v = [null];
+                        } else {
+                            $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
+                        }
+                        $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
+                        break;
+                    case 'Datetime':
+                    case DBDatetime::class:
+                        if ($this->IsEmpty) {
+                            $v = [null];
+                        } else {
+                            $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
+                        }
+                        $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
+                        break;
+                    case 'Varchar':
+                    case 'Text':
+                    case 'HTMLText':
+                    case 'HTMLVarchar':
+                    case 'DBHTMLText':
+                    case DBString::class:
+                    default:
+                        if ($this->IsEmpty) {
+                            $v = [null, ''];
+                        } else {
+                            // do nothing
+                        }
+                        $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
                 }
-                $i = 'Please enter a number, e.g. "1" or "2" or "3" or "-10" or "1.5" or "2.5" or "3.5".';
-                break;
-            case 'Date':
-            case DBDate::class:
-                if ($this->IsEmpty) {
-                    $v = [null];
-                } else {
-                    $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
-                }
-                $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
-                break;
-            case 'Time':
-            case DBTime::class:
-                if ($this->IsEmpty) {
-                    $v = [null];
-                } else {
-                    $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
-                }
-                $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
-                break;
-            case 'Datetime':
-            case DBDatetime::class:
-                if ($this->IsEmpty) {
-                    $v = [null];
-                } else {
-                    $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
-                }
-                $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
-                break;
-            case 'Varchar':
-            case 'Text':
-            case 'HTMLText':
-            case 'HTMLVarchar':
-            case 'DBHTMLText':
-            case DBString::class:
-            default:
-                if ($this->IsEmpty) {
-                    $v = [null, ''];
-                } else {
-                    // do nothing
-                }
-                $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
+            }
+            self::$field_value_cache[$key] = ['v' => $v, 'f' => $f, 'i' => $i];
+        }
+
+        if ($getField) {
+            if (empty($f)) {
+                $f = TextField::create('FilterValue', 'Filter Value', (string) $this->FilterValue);
+            }
+            $f->setDescription($f->getDescription() . ' ' . $i);
+            return $f;
         }
         if ($getInstruction) {
             return $i;
@@ -236,24 +339,22 @@ class FilterItem extends DataObject
         return $v;
     }
 
-    public function getFieldValueAdditionalInformation(): string
-    {
-        return $this->getFieldValueCalculated(true);
-    }
-
     public function getCMSFields()
     {
 
         if (!$this->FieldName) {
             return FieldList::create(
+                CheckboxField::create('UseAdvancedFieldSelection', 'Use advanced field list?')
+                    ->setDescription('Select from all fields of selected record.'),
                 OptionsetGroupedField::create(
                     'FieldName',
                     'Select Field',
                     $this->getFieldsNamesAvailable(true)
-                )
+                ),
             );
         }
         $fields = parent::getCMSFields();
+        $fields->removeByName('UseAdvancedFieldSelection');
         $fields->replaceField(
             'FieldName',
             ReadonlyField::create(
@@ -262,14 +363,19 @@ class FilterItem extends DataObject
                 $this->getFieldNameNice()
             )
         );
-        $fields->replaceField(
-            'FilterType',
-            OptionsetField::create(
+        if ($this->UseAdvancedFieldSelection) {
+            $fields->replaceField(
                 'FilterType',
-                'Select Filter Type',
-                $this->getFilterTypesAvailable()
-            )->setEmptyString('Exact Match')
-        );
+                OptionsetField::create(
+                    'FilterType',
+                    'Select Filter Type',
+                    $this->getFilterTypesAvailable()
+                )->setEmptyString('Exact Match')
+            );
+        } else {
+            $fields->removeByName('FilterType');
+            $fields->removeByName('IsEmpty');
+        }
         if ($this->IsEmpty) {
             $fields->replaceField(
                 'FilterValue',
@@ -280,8 +386,10 @@ class FilterItem extends DataObject
                 )
             );
         } else {
-            $fields->dataFieldByName('FilterValue')
-                ->setDescription($this->getFieldValueAdditionalInformation());
+            $fields->replaceField(
+                'FilterValue',
+                $this->getFieldValueCalculated(true, true)
+            );
         }
         Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
             $this,
@@ -307,16 +415,38 @@ class FilterItem extends DataObject
 
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
-        $selection = Selection::selection_cache($this->SelectionID);
-        if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
+        $model = $this->getModelSingleton();
+        if (! $model) {
             return [];
         }
-        return Injector::inst()->get(ClassAndFieldInfo::class)
+        $mainList = [];
+        foreach ($this->getSearchFilters() as $k => $searchFilter) {
+            $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
+        }
+        if (!$this->UseAdvancedFieldSelection) {
+            return ['Main Fields' => $mainList];
+        }
+        $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
-                $selection->ModelClassName,
+                $model->ClassName,
                 ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
                 array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
             );
+        return ['Main Fields' => $mainList] + $otherLists;
+    }
+
+    protected function getSearchContext(): ?SearchContext
+    {
+        return $this->getModelSingleton()?->getDefaultSearchContext();
+    }
+
+    protected function getSearchFilters(): ?array
+    {
+        return $this->getModelSingleton()?->searchableFields();
+    }
+    protected function getSearchFields(): ?FieldList
+    {
+        return $this->getSearchContext()?->getSearchFields();
     }
 
     protected function getFilterTypesAvailable(): array
@@ -340,5 +470,14 @@ class FilterItem extends DataObject
     {
         return Injector::inst()->get(SelectionsAdmin::class)
             ->getCMSEditLinkForManagedDataObject($this);
+    }
+
+    protected function getModelSingleton(): ?DataObject
+    {
+        $selection = Selection::selection_cache($this->SelectionID);
+        if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
+            return null;
+        }
+        return Injector::inst()->get($selection->ModelClassName);
     }
 }

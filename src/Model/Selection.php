@@ -299,9 +299,9 @@ class Selection extends DataObject
         $filter = $this->getSelectionFilterArray();
         if (!empty($filter)) {
             if ($this->FilterAny) {
-                $list = $list->filterAny($this->getSelectionFilterArray());
+                $list = $list->filterAny($filter);
             } else {
-                $list = $list->filter($this->getSelectionFilterArray());
+                $list = $list->filter($filter);
             }
         }
         $sort = $this->getSelectionSortArray();
@@ -323,9 +323,8 @@ class Selection extends DataObject
         $filterArray = [];
         foreach ($this->FilterSelection() as $filter) {
             $key = $filter->getFieldNameCalculated();
-            $value = $filter->getFieldValueCalculated();
             if ($key) {
-                $filterArray[$filter->getFieldNameCalculated()] = $filter->getFieldValueCalculated();
+                $filterArray[$key] = $filter->getFieldValueCalculated();
             }
         }
         return $filterArray;
