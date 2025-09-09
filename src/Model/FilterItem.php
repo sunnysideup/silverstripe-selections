@@ -181,9 +181,7 @@ class FilterItem extends DataObject
     {
         $v = (string) $this->FieldName;
         $filterType = $this->getFilterTypeCalculated();
-        if ($filterType === 'ExactMatchFilter') {
-            $filterType = 'ExactMatch';
-        }
+
         if ($filterType && $filterType !== 'ExactMatch') {
             $v .= ':' . $filterType;
         }
@@ -195,6 +193,7 @@ class FilterItem extends DataObject
 
     public function getFilterTypeCalculated(): string
     {
+        $v = '';
         if ($this->UseAdvancedFieldSelection !== true) {
             $fields = $this->getSearchFilters();
             if (!empty($fields[$this->FieldName]['filter'])) {
@@ -202,6 +201,11 @@ class FilterItem extends DataObject
             }
         } else {
             $v = $this->FilterType;
+        }
+        if (! class_exists($v) && ! class_exists('DataList.' . $v)) {
+            if (str_ends_with($v, 'Filter')) {
+                $v = substr($v, 0, -6);
+            }
         }
         return $v ?: 'ExactMatch';
     }
@@ -220,7 +224,9 @@ class FilterItem extends DataObject
             if ($this->UseAdvancedFieldSelection !== true) {
                 $fields = $this->getSearchFields();
                 $f = $fields->fieldByName($this->FieldName);
-                $f->setName('FilterValue');
+                if ($f && $f instanceof FormField) {
+                    $f->setName('FilterValue');
+                }
                 $v = trim((string) $this->FilterValue);
                 $i = '';
             } else {
