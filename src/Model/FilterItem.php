@@ -411,7 +411,7 @@ class FilterItem extends DataObject
             $this->FilterValue = str_replace(
                 ['"', "'", '(', ')'],
                 '',
-                $this->FilterValue
+                (string) $this->FilterValue
             );
         }
         if ($this->Empty) {
