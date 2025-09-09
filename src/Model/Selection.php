@@ -105,6 +105,7 @@ class Selection extends DataObject
         // 'excluded_class_field_combos' => [],
         // 'included_class_field_combos' => [],
         'grouped' => true,
+        'minimum_class_count' => 5,
     ];
 
     public function getCMSFields()
@@ -241,7 +242,10 @@ class Selection extends DataObject
                 'ModelClassName',
                 $this->fieldLabel('ModelClassName'),
                 Injector::inst()->get(ClassAndFieldInfo::class)->getListOfClasses(
-                    array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
+                    array_replace(
+                        $this->Config()->get('class_and_field_inclusion_exclusion_schema'),
+                        ['grouped' => $grouped]
+                    ),
                 )
             )->setDescription(
                 '
