@@ -328,7 +328,7 @@ class Selection extends DataObject
         foreach ($this->FilterSelection() as $filter) {
             $key = $filter->getFieldNameCalculated();
             if ($key) {
-                $filterArray[$key] = $filter->getFieldValueCalculatedAsArray();
+                $filterArray[$key] = $filter->getFieldValueCalculatedAsArrayOrString();
             }
         }
         return $filterArray;

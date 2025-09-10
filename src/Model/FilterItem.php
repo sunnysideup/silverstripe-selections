@@ -298,7 +298,7 @@ class FilterItem extends DataObject
         } else {
             $fields->replaceField(
                 'FilterValue',
-                $this->getFieldValueFormField(false, true)
+                $this->getFieldValueFormField()
             );
         }
         if ($this->IsAvailableForMultipleValues()) {
