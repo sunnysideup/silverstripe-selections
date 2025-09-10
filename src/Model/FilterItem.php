@@ -217,15 +217,22 @@ class FilterItem extends DataObject
 
     protected static $field_value_cache = [];
 
-    public function getFieldValueCalculatedAsArray()
+    public function getFieldValueCalculatedAsArrayOrString(): array|string
     {
         $v = $this->getFieldValueCalculated();
-        if ($this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
+        if ($this->IsAvailableForMultipleValues() && $this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
             $v = array_map('trim', explode($this->ValueSeparator, (string) $v));
         } else {
             $v = [$v];
         }
         return $v;
+    }
+
+    protected function IsAvailableForMultipleValues()
+    {
+        if ($this->FilterType === 'ExactMatch' || !$this->FilterType) {
+            return true;
+        }
     }
 
     public function getFieldValueCalculated()
@@ -294,19 +301,24 @@ class FilterItem extends DataObject
                 $this->getFieldValueFormField(false, true)
             );
         }
-        $fields->replaceField(
-            'ValueSeparator',
-            DropdownField::create(
+        if ($this->IsAvailableForMultipleValues()) {
+            $fields->replaceField(
                 'ValueSeparator',
-                'If you want to filter by multiple values, select the separator used in the field above.',
-                [
-                    ',' => 'Comma ( , )',
-                    ';' => 'Semi-colon ( ; )',
-                    '|' => 'Pipe ( | )',
-                    '|||' => 'Three Pipes ( ||| )'
-                ]
-            )->setEmptyString('One value only')
-        );
+                DropdownField::create(
+                    'ValueSeparator',
+                    'If you want to filter by multiple values, select the separator used in the field above.',
+                    [
+                        ',' => 'Comma ( , )',
+                        ';' => 'Semi-colon ( ; )',
+                        '|' => 'Pipe ( | )',
+                        '|||' => 'Three Pipes ( ||| )'
+                    ]
+                )->setEmptyString('One value only')
+            );
+        } else {
+            $fields->removeByName('ValueSeparator');
+        }
+
         Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
             $this,
             $fields,
