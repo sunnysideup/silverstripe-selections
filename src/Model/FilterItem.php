@@ -121,9 +121,11 @@ class FilterItem extends DataObject
     public function getFieldNameNice(): string
     {
         $list = $this->getFieldsNamesAvailable();
-        foreach ($list as $mainGroup => $fields) {
-            if (isset($fields[$this->FieldName])) {
-                return $fields[$this->FieldName];
+        foreach ($list as $fields) {
+            if (is_array($fields)) {
+                if (isset($fields[$this->FieldName])) {
+                    return $fields[$this->FieldName];
+                }
             }
         }
         return (string) $this->FieldName ?: 'ERROR';
@@ -132,7 +134,7 @@ class FilterItem extends DataObject
     public function getFieldType(): string
     {
         // print_r($this->getSearchFields());
-        if ($this->UseAdvancedFieldSelection !== true) {
+        if ((bool) $this->UseAdvancedFieldSelection === false) {
             return '';
         }
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
@@ -146,7 +148,7 @@ class FilterItem extends DataObject
 
     public function getFilterValueNice(): string
     {
-        if ($this->UseAdvancedFieldSelection !== true) {
+        if ((bool) $this->UseAdvancedFieldSelection === false) {
             $f = $this->getFieldValueCalculated(false, true);
             if ($f instanceof FormField) {
                 $f->setValue($this->FilterValue);
@@ -194,7 +196,7 @@ class FilterItem extends DataObject
     public function getFilterTypeCalculated(): string
     {
         $v = '';
-        if ($this->UseAdvancedFieldSelection !== true) {
+        if ((bool) $this->UseAdvancedFieldSelection === false) {
             $fields = $this->getSearchFilters();
             if (!empty($fields[$this->FieldName]['filter'])) {
                 $v = $fields[$this->FieldName]['filter'];
@@ -202,7 +204,7 @@ class FilterItem extends DataObject
         } else {
             $v = $this->FilterType;
         }
-        if (! class_exists($v) && ! class_exists('DataList.' . $v)) {
+        if ($v && ! class_exists($v) && ! class_exists('DataList.' . $v)) {
             if (str_ends_with($v, 'Filter')) {
                 $v = substr($v, 0, -6);
             }
@@ -221,7 +223,7 @@ class FilterItem extends DataObject
             $f = self::$field_value_cache[$key]['f'];
             $i = self::$field_value_cache[$key]['i'];
         } else {
-            if ($this->UseAdvancedFieldSelection !== true) {
+            if ((bool) $this->UseAdvancedFieldSelection === false) {
                 $fields = $this->getSearchFields();
                 $f = $fields->fieldByName($this->FieldName);
                 if ($f && $f instanceof FormField) {
@@ -360,7 +362,7 @@ class FilterItem extends DataObject
             );
         }
         $fields = parent::getCMSFields();
-        $fields->removeByName('UseAdvancedFieldSelection');
+        // $fields->removeByName('UseAdvancedFieldSelection');
         $fields->replaceField(
             'FieldName',
             ReadonlyField::create(
@@ -425,11 +427,11 @@ class FilterItem extends DataObject
         if (! $model) {
             return [];
         }
-        $mainList = [];
-        foreach ($this->getSearchFilters() as $k => $searchFilter) {
-            $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
-        }
         if (!$this->UseAdvancedFieldSelection) {
+            $mainList = [];
+            foreach ($this->getSearchFilters() as $k => $searchFilter) {
+                $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
+            }
             return ['Main Fields' => $mainList];
         }
         $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
@@ -438,7 +440,7 @@ class FilterItem extends DataObject
                 ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
                 array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
             );
-        return ['Main Fields' => $mainList] + $otherLists;
+        return $otherLists;
     }
 
     protected function getSearchContext(): ?SearchContext
