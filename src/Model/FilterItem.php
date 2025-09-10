@@ -206,10 +206,10 @@ class FilterItem extends DataObject
         } else {
             $v = $this->FilterType;
         }
+        if (str_ends_with($v, 'Filter')) {
+            $v = substr($v, 0, -6);
+        }
         if ($v && ! class_exists($v) && ! class_exists('DataList.' . $v)) {
-            if (str_ends_with($v, 'Filter')) {
-                $v = substr($v, 0, -6);
-            }
         }
         return $v ?: 'ExactMatch';
     }
@@ -222,17 +222,16 @@ class FilterItem extends DataObject
         $v = $this->getFieldValueCalculated();
         if ($this->IsAvailableForMultipleValues() && $this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
             $v = array_map('trim', explode($this->ValueSeparator, (string) $v));
-        } else {
-            $v = [$v];
         }
         return $v;
     }
 
-    protected function IsAvailableForMultipleValues()
+    protected function IsAvailableForMultipleValues(): bool
     {
-        if ($this->FilterType === 'ExactMatch' || !$this->FilterType) {
+        if ($this->FilterType === 'ExactMatch') {
             return true;
         }
+        return false;
     }
 
     public function getFieldValueCalculated()
@@ -306,7 +305,7 @@ class FilterItem extends DataObject
                 'ValueSeparator',
                 DropdownField::create(
                     'ValueSeparator',
-                    'If you want to filter by multiple values, select the separator used in the field above.',
+                    'If you want to filter by multiple values, select the separator used in the field below.',
                     [
                         ',' => 'Comma ( , )',
                         ';' => 'Semi-colon ( ; )',
@@ -338,6 +337,16 @@ class FilterItem extends DataObject
         }
         if ($this->Empty) {
             $this->FilterType = '';
+        }
+        if ($this->isChanged('UseAdvancedFieldSelection')) {
+            $this->FieldName = '';
+            $this->FilterType = '';
+            $this->IsEmpty = false;
+            $this->ValueSeparator = '';
+            $this->FilterValue = '';
+        }
+        if (!$this->IsAvailableForMultipleValues) {
+            $this->ValueSeparator = '';
         }
     }
 
@@ -415,15 +424,14 @@ class FilterItem extends DataObject
     public function validate()
     {
         $result = parent::validate();
-        if ($this->FieldName && $this->FilterType && $this->ID && $this->SelectionID) {
+        if ($this->FieldName && $this->ID && $this->SelectionID) {
             $filter = [
-                'ID:not' => $this->ID,
                 'SelectionID' => $this->SelectionID,
                 'FieldName' => $this->FieldName,
                 'FilterType' => $this->FilterType,
             ];
 
-            if (static::get()->filter($filter)) {
+            if (static::get()->filter($filter)->exclude('ID', $this->ID)->exists()) {
                 $result->addFieldError(
                     'FieldName',
                     _t(__CLASS__ . '.ERROR_KEY_EXISTS', 'A record for this filter already exists. All filters must be unique.')
