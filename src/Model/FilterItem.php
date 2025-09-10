@@ -32,6 +32,7 @@ use SilverStripe\ORM\FieldType\DBPercentage;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
 use SilverStripe\ORM\Search\SearchContext;
+use SilverStripe\ORM\ValidationResult;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
@@ -42,12 +43,13 @@ class FilterItem extends DataObject
     private static $table_name = 'SelectionsFilterItem';
 
     private static $db = [
-        'UseAdvancedFieldSelection' => 'Boolean(0)',
         'FieldName' => 'Varchar(255)',
         'FilterType' => 'Varchar(255)',
         'IsEmpty' => 'Boolean',
-        'FilterValue' => 'Varchar(255)',
+        'ValueSeparator' => 'Varchar(1)',
+        'FilterValue' => 'Text',
         'SelectOpposite' => 'Boolean',
+        'UseAdvancedFieldSelection' => 'Boolean(0)',
     ];
 
     private static $has_one = [
@@ -149,7 +151,7 @@ class FilterItem extends DataObject
     public function getFilterValueNice(): string
     {
         if ((bool) $this->UseAdvancedFieldSelection === false) {
-            $f = $this->getFieldValueCalculated(false, true);
+            $f = $this->getFieldValueFormField();
             if ($f instanceof FormField) {
                 $f->setValue($this->FilterValue);
                 if ($f->hasMethod('getFormattedValue')) {
@@ -215,7 +217,211 @@ class FilterItem extends DataObject
 
     protected static $field_value_cache = [];
 
-    public function getFieldValueCalculated(?bool $getInstruction = false, ?bool $getField = false): mixed
+    public function getFieldValueCalculatedAsArray()
+    {
+        $v = $this->getFieldValueCalculated();
+        if ($this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
+            $v = array_map('trim', explode($this->ValueSeparator, (string) $v));
+        } else {
+            $v = [$v];
+        }
+        return $v;
+    }
+
+    public function getFieldValueCalculated()
+    {
+        return $this->getFieldValueCalculatedInner(null, null);
+    }
+
+    public function getFieldValueFormField()
+    {
+        return $this->getFieldValueCalculatedInner(null, true);
+    }
+
+    public function getCMSFields()
+    {
+
+        if (!$this->FieldName) {
+            return FieldList::create(
+                CheckboxField::create('UseAdvancedFieldSelection', 'Advanced filter options')
+                    ->setDescription('Select from all fields of selected record.'),
+                OptionsetGroupedField::create(
+                    'FieldName',
+                    'Select Field',
+                    $this->getFieldsNamesAvailable(true)
+                ),
+            );
+        }
+        $fields = parent::getCMSFields();
+        $fields->replaceField('UseAdvancedFieldSelection', ReadonlyField::create(
+            'UseAdvancedFieldSelectionNice',
+            'Use advanced filter options',
+            $this->UseAdvancedFieldSelection ? 'YES' : 'NO - you will have to create a new filter to user advanced .'
+        ));
+        $fields->replaceField(
+            'FieldName',
+            ReadonlyField::create(
+                'FieldNameNice',
+                'Selected Field',
+                $this->getFieldNameNice()
+            )
+        );
+        if ($this->UseAdvancedFieldSelection) {
+            $fields->replaceField(
+                'FilterType',
+                OptionsetField::create(
+                    'FilterType',
+                    'Select Filter Type',
+                    $this->getFilterTypesAvailable()
+                )->setEmptyString('Exact Match')
+            );
+        } else {
+            $fields->removeByName('FilterType');
+            $fields->removeByName('IsEmpty');
+        }
+        if ($this->IsEmpty) {
+            $fields->replaceField(
+                'FilterValue',
+                ReadonlyField::create(
+                    'FilterValueNice',
+                    $this->fieldLabel('FilterValue'),
+                    'Filter for empty values'
+                )
+            );
+        } else {
+            $fields->replaceField(
+                'FilterValue',
+                $this->getFieldValueFormField(false, true)
+            );
+        }
+        $fields->replaceField(
+            'ValueSeparator',
+            DropdownField::create(
+                'ValueSeparator',
+                'If you want to filter by multiple values, select the separator used in the field above.',
+                [
+                    ',' => 'Comma ( , )',
+                    ';' => 'Semi-colon ( ; )',
+                    '|' => 'Pipe ( | )',
+                    '|||' => 'Three Pipes ( ||| )'
+                ]
+            )->setEmptyString('One value only')
+        );
+        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
+            $this,
+            $fields,
+        );
+        return $fields;
+    }
+
+    public function onBeforeWrite(): void
+    {
+        parent::onBeforeWrite();
+        if ($this->FilterValue) {
+            $this->FilterValue = str_replace(
+                ['"', "'", '(', ')'],
+                '',
+                (string) $this->FilterValue
+            );
+        }
+        if ($this->Empty) {
+            $this->FilterType = '';
+        }
+    }
+
+    protected function getFieldsNamesAvailable(?bool $grouped = false): array
+    {
+        $model = $this->getModelSingleton();
+        if (! $model) {
+            return [];
+        }
+        if (!$this->UseAdvancedFieldSelection) {
+            $mainList = [];
+            foreach ($this->getSearchFilters() as $k => $searchFilter) {
+                $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
+            }
+            return ['Main Fields' => $mainList];
+        }
+        $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
+            ->getListOfFieldNames(
+                $model->ClassName,
+                ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
+                array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
+            );
+        return $otherLists;
+    }
+
+    protected function getSearchContext(): ?SearchContext
+    {
+        return $this->getModelSingleton()?->getDefaultSearchContext();
+    }
+
+    protected function getSearchFilters(): ?array
+    {
+        return $this->getModelSingleton()?->searchableFields();
+    }
+    protected function getSearchFields(): ?FieldList
+    {
+        return $this->getSearchContext()?->getSearchFields();
+    }
+
+    protected function getFilterTypesAvailable(): array
+    {
+        return [
+            'PartialMatch' => 'Contains',
+            'StartsWith' => 'Starts With',
+            'GreaterThan' => 'Greater Than',
+            'GreaterThanOrEqual' => 'Greater Than or Equal',
+            'LessThan' => 'Less Than',
+            'LessThanOrEqual' => 'Less Than or Equal',
+        ];
+    }
+
+    protected function getFieldTypeObject(): ?DBField
+    {
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
+    }
+
+    public function CMSEditLink(): string
+    {
+        return Injector::inst()->get(SelectionsAdmin::class)
+            ->getCMSEditLinkForManagedDataObject($this);
+    }
+
+    protected function getModelSingleton(): ?DataObject
+    {
+        $selection = Selection::selection_cache($this->SelectionID);
+        if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
+            return null;
+        }
+        return Injector::inst()->get($selection->ModelClassName);
+    }
+
+    /**
+     * @return ValidationResult
+     */
+    public function validate()
+    {
+        $result = parent::validate();
+        if ($this->FieldName && $this->FilterType && $this->ID && $this->SelectionID) {
+            $filter = [
+                'ID:not' => $this->ID,
+                'SelectionID' => $this->SelectionID,
+                'FieldName' => $this->FieldName,
+                'FilterType' => $this->FilterType,
+            ];
+
+            if (static::get()->filter($filter)) {
+                $result->addFieldError(
+                    'FieldName',
+                    _t(__CLASS__ . '.ERROR_KEY_EXISTS', 'A record for this filter already exists. All filters must be unique.')
+                );
+            }
+        }
+        return $result;
+    }
+
+    protected function getFieldValueCalculatedInner(?bool $getInstruction = false, ?bool $getField = false): mixed
     {
         $key = $this->ID;
         if (isset(self::$field_value_cache[$key])) {
@@ -331,7 +537,11 @@ class FilterItem extends DataObject
                         $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
                 }
             }
-            self::$field_value_cache[$key] = ['v' => $v, 'f' => $f, 'i' => $i];
+            self::$field_value_cache[$key] = [
+                'v' => $v,
+                'f' => $f,
+                'i' => $i
+            ];
         }
 
         if ($getField) {
@@ -345,147 +555,5 @@ class FilterItem extends DataObject
             return $i;
         }
         return $v;
-    }
-
-    public function getCMSFields()
-    {
-
-        if (!$this->FieldName) {
-            return FieldList::create(
-                CheckboxField::create('UseAdvancedFieldSelection', 'Use advanced field list?')
-                    ->setDescription('Select from all fields of selected record.'),
-                OptionsetGroupedField::create(
-                    'FieldName',
-                    'Select Field',
-                    $this->getFieldsNamesAvailable(true)
-                ),
-            );
-        }
-        $fields = parent::getCMSFields();
-        // $fields->removeByName('UseAdvancedFieldSelection');
-        $fields->replaceField(
-            'FieldName',
-            ReadonlyField::create(
-                'FieldNameNice',
-                'Selected Field',
-                $this->getFieldNameNice()
-            )
-        );
-        if ($this->UseAdvancedFieldSelection) {
-            $fields->replaceField(
-                'FilterType',
-                OptionsetField::create(
-                    'FilterType',
-                    'Select Filter Type',
-                    $this->getFilterTypesAvailable()
-                )->setEmptyString('Exact Match')
-            );
-        } else {
-            $fields->removeByName('FilterType');
-            $fields->removeByName('IsEmpty');
-        }
-        if ($this->IsEmpty) {
-            $fields->replaceField(
-                'FilterValue',
-                ReadonlyField::create(
-                    'FilterValueNice',
-                    $this->fieldLabel('FilterValue'),
-                    'Filter for empty values'
-                )
-            );
-        } else {
-            $fields->replaceField(
-                'FilterValue',
-                $this->getFieldValueCalculated(true, true)
-            );
-        }
-        Injector::inst()->get(AddCastedVariablesHelper::class)->AddCastingFields(
-            $this,
-            $fields,
-        );
-        return $fields;
-    }
-
-    public function onBeforeWrite(): void
-    {
-        parent::onBeforeWrite();
-        if ($this->FilterValue) {
-            $this->FilterValue = str_replace(
-                ['"', "'", '(', ')'],
-                '',
-                (string) $this->FilterValue
-            );
-        }
-        if ($this->Empty) {
-            $this->FilterType = '';
-        }
-    }
-
-    protected function getFieldsNamesAvailable(?bool $grouped = false): array
-    {
-        $model = $this->getModelSingleton();
-        if (! $model) {
-            return [];
-        }
-        if (!$this->UseAdvancedFieldSelection) {
-            $mainList = [];
-            foreach ($this->getSearchFilters() as $k => $searchFilter) {
-                $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
-            }
-            return ['Main Fields' => $mainList];
-        }
-        $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
-            ->getListOfFieldNames(
-                $model->ClassName,
-                ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
-                array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
-            );
-        return $otherLists;
-    }
-
-    protected function getSearchContext(): ?SearchContext
-    {
-        return $this->getModelSingleton()?->getDefaultSearchContext();
-    }
-
-    protected function getSearchFilters(): ?array
-    {
-        return $this->getModelSingleton()?->searchableFields();
-    }
-    protected function getSearchFields(): ?FieldList
-    {
-        return $this->getSearchContext()?->getSearchFields();
-    }
-
-    protected function getFilterTypesAvailable(): array
-    {
-        return [
-            'PartialMatch' => 'Contains',
-            'StartsWith' => 'Starts With',
-            'GreaterThan' => 'Greater Than',
-            'GreaterThanOrEqual' => 'Greater Than or Equal',
-            'LessThan' => 'Less Than',
-            'LessThanOrEqual' => 'Less Than or Equal',
-        ];
-    }
-
-    protected function getFieldTypeObject(): ?DBField
-    {
-        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
-    }
-
-    public function CMSEditLink(): string
-    {
-        return Injector::inst()->get(SelectionsAdmin::class)
-            ->getCMSEditLinkForManagedDataObject($this);
-    }
-
-    protected function getModelSingleton(): ?DataObject
-    {
-        $selection = Selection::selection_cache($this->SelectionID);
-        if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
-            return null;
-        }
-        return Injector::inst()->get($selection->ModelClassName);
     }
 }
