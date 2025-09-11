@@ -109,12 +109,13 @@ class FilterItem extends DataObject
     public function getTitle(): string
     {
         return implode(
-            ' - ',
+            ' ',
             array_filter(
                 [
-                    $this->getFieldNameNice(),
-                    $this->getFilterTypeNice(),
-                    $this->FilterValue,
+                    $this->getFieldNameNice() . ' => ',
+                    $this->getFilterValueNice(),
+                    '(' . $this->getFilterTypeNice() . ')',
+                    ($this->SelectOpposite ? '- invert selection' : ''),
                 ]
             )
         );
@@ -178,7 +179,7 @@ class FilterItem extends DataObject
                 $filterValue = 'YES, TRUE OR ONE';
             }
         }
-        return $filterValue ?: 'filter value not set';
+        return (string) ($filterValue ?: 'filter value not set');
     }
 
     public function getFieldNameCalculated(): string
@@ -206,10 +207,10 @@ class FilterItem extends DataObject
         } else {
             $v = $this->FilterType;
         }
-        if (str_ends_with($v, 'Filter')) {
-            $v = substr($v, 0, -6);
-        }
         if ($v && ! class_exists($v) && ! class_exists('DataList.' . $v)) {
+            if (str_ends_with($v, (string) 'Filter')) {
+                $v = substr($v, 0, -6);
+            }
         }
         return $v ?: 'ExactMatch';
     }
@@ -217,7 +218,7 @@ class FilterItem extends DataObject
 
     protected static $field_value_cache = [];
 
-    public function getFieldValueCalculatedAsArrayOrString(): array|string
+    public function getFieldValueCalculatedAsArrayOrString(): mixed
     {
         $v = $this->getFieldValueCalculated();
         if ($this->IsAvailableForMultipleValues() && $this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
@@ -259,6 +260,15 @@ class FilterItem extends DataObject
             );
         }
         $fields = parent::getCMSFields();
+        $fields->addFieldToTab(
+            'Root.Main',
+            ReadonlyField::create(
+                'Title',
+                'Summary',
+                $this->getTitle()
+            ),
+            'FieldName'
+        );
         $fields->replaceField('UseAdvancedFieldSelection', ReadonlyField::create(
             'UseAdvancedFieldSelectionNice',
             'Use advanced filter options',
@@ -279,7 +289,7 @@ class FilterItem extends DataObject
                     'FilterType',
                     'Select Filter Type',
                     $this->getFilterTypesAvailable()
-                )->setEmptyString('Exact Match')
+                )->setEmptyString('-- Exact Match -- ')
             );
         } else {
             $fields->removeByName('FilterType');
@@ -429,6 +439,8 @@ class FilterItem extends DataObject
                 'SelectionID' => $this->SelectionID,
                 'FieldName' => $this->FieldName,
                 'FilterType' => $this->FilterType,
+                'SelectOpposite' => $this->SelectOpposite,
+                'IsEmpty' => $this->IsEmpty,
             ];
 
             if (static::get()->filter($filter)->exclude('ID', $this->ID)->exists()) {
