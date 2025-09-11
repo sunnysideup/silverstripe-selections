@@ -75,18 +75,20 @@ class Selection extends DataObject
         'ModelClassNameNice' => 'Record Type',
         'LimitTo' => 'Maximum number of records (0 = all)',
         'FilterAny' => 'Include records that match any of the filters (instead of all)',
+        'FilterSelectionSummary' => 'Filter Summary',
     ];
 
     private static $summary_fields = [
         'Created.Ago' => 'Created',
-        'Title' => 'Name',
         'ModelClassNameNice' => 'Record Type',
+        'Title' => 'Name',
         'NumberOfRecords' => 'Matches',
     ];
 
     private static $casting = [
         'ModelClassNameNice' => 'Varchar',
         'NumberOfRecords' => 'Int',
+        'FilterSelectionSummary' => 'Text',
         'RawSqlInfo' => 'HTMLText',
     ];
 
@@ -274,6 +276,24 @@ class Selection extends DataObject
             return $list->count();
         }
         return 0;
+    }
+
+    public function getFilterSelectionSummary()
+    {
+        $parts = [];
+        $maxCount = 5;
+        foreach ($this->FilterSelection() as $i => $filter) {
+            $parts[] = $filter->getTitle();
+            if ($i === $maxCount - 1) {
+                $parts[] = '...';
+                break;
+            }
+        }
+        if (count($parts)) {
+            $glue = $this->FilterAny ? ' OR ' : ' AND ';
+            return implode($glue, $parts);
+        }
+        return 'No filters selected';
     }
 
     public function getRawSqlInfo(): string
