@@ -410,7 +410,7 @@ class FilterItem extends DataObject
 
     protected function getFieldTypeObject(): ?DBField
     {
-        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject($this->FieldName);
+        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject((string) $this->FieldName);
     }
 
     public function CMSEditLink(): string
@@ -471,6 +471,9 @@ class FilterItem extends DataObject
                 $i = '';
             } else {
                 $type = $this->getFieldTypeObject();
+                if (!$type) {
+                    $type = DBString::class;
+                }
                 if (is_object($type)) {
                     $type = get_class($type);
                 }
@@ -529,11 +532,15 @@ class FilterItem extends DataObject
                         break;
                     case 'Date':
                     case DBDate::class:
-                        if ($this->IsEmpty) {
-                            $v = [null];
-                        } else {
-                            $v = DBDate::create_field(DBTime::class, (string) $v)->getValue();
+                        if (! $v) {
+                            $v = $this->FilterValue;
                         }
+                        $date = strtotime((string) $v);
+                        if (! $date) {
+                            $date = time();
+                        }
+                        $v = date('Y-m-d', $date);
+                        $v = DBDate::create_field(DBDate::class, $v)->getValue();
                         $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
                         break;
                     case 'Time':
@@ -541,6 +548,14 @@ class FilterItem extends DataObject
                         if ($this->IsEmpty) {
                             $v = [null];
                         } else {
+                            if (! $v) {
+                                $v = $this->FilterValue;
+                            }
+                            $date = strtotime((string) $v);
+                            if (! $date) {
+                                $date = time();
+                            }
+                            $v = date('Y-m-d H:i:s', $date);
                             $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
                         }
                         $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
@@ -550,7 +565,15 @@ class FilterItem extends DataObject
                         if ($this->IsEmpty) {
                             $v = [null];
                         } else {
-                            $v = DBField::create_field(DBDatetime::class, (string) $v)->getValue();
+                            if (! $v) {
+                                $v = $this->FilterValue;
+                            }
+                            $date = strtotime((string) $v);
+                            if (! $date) {
+                                $date = time();
+                            }
+                            $v = date('Y-m-d H:i:s', $date);
+                            $v = DBField::create_field(DBDatetime::class, $v)->getValue();
                         }
                         $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
                         break;
