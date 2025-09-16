@@ -385,7 +385,7 @@ class Selection extends DataObject
         return null;
     }
 
-    public function getFieldTypeObject(string $fieldName): DBField
+    public function getFieldTypeObject(string $fieldName): ?DBField
     {
         $singleton = $this->getModelSingleton();
         return Injector::inst()->get(ClassAndFieldInfo::class)
