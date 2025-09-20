@@ -117,6 +117,7 @@ class Selection extends DataObject
                 $this->getSelectClassNameField(true)
             );
         } else {
+            $this->write();
             $fields = parent::getCMSFields();
             $fields->replaceField(
                 'ModelClassName',
