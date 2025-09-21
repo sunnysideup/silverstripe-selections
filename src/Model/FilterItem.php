@@ -402,6 +402,9 @@ class FilterItem extends DataObject
 
     protected function getFilterTypesAvailable(): array
     {
+        if ($this->IsEmpty) {
+            return [];
+        }
         return [
             'PartialMatch' => 'Contains',
             'StartsWith' => 'Starts With',
