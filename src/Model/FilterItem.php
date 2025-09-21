@@ -146,7 +146,11 @@ class FilterItem extends DataObject
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
-        return $list[$this->FilterType] ?? $this->FilterType ?: 'Exact Match';
+        $v = $list[$this->FilterType] ?? $this->FilterType ?: 'Exact Match';
+        if ($this->SelectOpposite) {
+            $v = 'NOT: ' . $v;
+        }
+        return $v;
     }
 
     public function getFilterValueNice(): string
