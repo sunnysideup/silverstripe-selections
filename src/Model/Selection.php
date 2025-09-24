@@ -163,6 +163,9 @@ class Selection extends DataObject
                         ),
                     ],
                 );
+                $fields->fieldByName('Root.Matches')?->setTitle(
+                    'Matches: ' . ($list->count())
+                );
             }
             $config->removeComponentsByType(GridFieldAddNewButton::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
