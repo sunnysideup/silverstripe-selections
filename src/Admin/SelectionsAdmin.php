@@ -13,12 +13,9 @@ class SelectionsAdmin extends ModelAdmin
 {
     private static $url_segment = 'selections';
     private static $menu_title = 'Selections';
-    private static $menu_icon_class = 'font-icon-block-content';
+    private static $menu_icon_class = 'font-icon-p-search';
     private static $managed_models = [
         Selection::class,
-        FilterItem::class,
-        SortItem::class,
-        DisplayItem::class,
     ];
 
 
