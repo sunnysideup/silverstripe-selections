@@ -352,7 +352,7 @@ class FilterItem extends DataObject
         if ($this->Empty) {
             $this->FilterType = '';
         }
-        if ($this->isChanged('UseAdvancedFieldSelection')) {
+        if ($this->isChanged('UseAdvancedFieldSelection', DataObject::CHANGE_VALUE)) {
             $this->FieldName = '';
             $this->FilterType = '';
             $this->IsEmpty = false;
@@ -370,20 +370,20 @@ class FilterItem extends DataObject
         if (! $model) {
             return [];
         }
-        if (!$this->UseAdvancedFieldSelection) {
-            $mainList = [];
-            foreach ($this->getSearchFilters() as $k => $searchFilter) {
-                $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
-            }
-            return ['Main Fields' => $mainList];
+        if ($this->UseAdvancedFieldSelection) {
+            $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
+                ->getListOfFieldNames(
+                    $model->ClassName,
+                    ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
+                    array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
+                );
+            return $otherLists;
         }
-        $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
-            ->getListOfFieldNames(
-                $model->ClassName,
-                ['db', 'belongs', 'has_one', 'has_many', 'many_many', 'belongs_many_many'],
-                array_replace($this->Config()->get('class_and_field_inclusion_exclusion_schema'), ['grouped' => $grouped]),
-            );
-        return $otherLists;
+        $mainList = [];
+        foreach ($this->getSearchFilters() as $k => $searchFilter) {
+            $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
+        }
+        return ['Main Fields' => $mainList];
     }
 
     protected function getSearchContext(): ?SearchContext
@@ -607,11 +607,14 @@ class FilterItem extends DataObject
         }
 
         if ($getField) {
-            if (empty($f)) {
-                $f = TextField::create('FilterValue', 'Filter Value', (string) $this->FilterValue);
+            if (empty(self::$field_value_cache[$key]['f'])) {
+                self::$field_value_cache[$key]['f'] = TextField::create('FilterValue', 'Filter Value', (string) $this->FilterValue);
             }
-            $f->setDescription($f->getDescription() . ' ' . $i);
-            return $f;
+            self::$field_value_cache[$key]['f']
+                ->setDescription(self::$field_value_cache[$key]['f']->getDescription() . ' ' . $i)
+                ->setTitle('Filter Value')
+            ;
+            return self::$field_value_cache[$key]['f'];
         }
         if ($getInstruction) {
             return $i;

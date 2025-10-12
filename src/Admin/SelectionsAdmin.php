@@ -16,6 +16,9 @@ class SelectionsAdmin extends ModelAdmin
     private static $menu_icon_class = 'font-icon-p-search';
     private static $managed_models = [
         Selection::class,
+        FilterItem::class,
+        SortItem::class,
+        DisplayItem::class,
     ];
 
 
