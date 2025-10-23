@@ -74,7 +74,7 @@ class Selection extends DataObject
         'ModelClassName' => 'Record Type',
         'ModelClassNameNice' => 'Record Type',
         'LimitTo' => 'Maximum number of records (0 = all)',
-        'FilterAny' => 'Include records that match any of the filters (instead of all)',
+        'FilterAny' => 'Include records that match any of the filters (instead of all) - note that if you include two or more filters for the same field, they will also be treated as a match any condition.',
         'FilterSelectionSummary' => 'Filter Summary',
     ];
 
@@ -351,8 +351,22 @@ class Selection extends DataObject
         $filterArray = [];
         foreach ($this->FilterSelection() as $filter) {
             $key = $filter->getFieldNameCalculated();
-            if ($key) {
-                $filterArray[$key] = $filter->getFieldValueCalculatedAsArrayOrString();
+            $newValue = $filter->getFieldValueCalculatedAsArrayOrString();
+            if (isset($filterArray[$key])) {
+                $existing = $filterArray[$key];
+                if (!is_array($existing)) {
+                    // not an array, make it one
+                    $existing = [$existing];
+                }
+                // already an array, add to it
+                if (is_array($newValue)) {
+                    $filterArray[$key] = array_merge($existing, $newValue);
+                } else {
+                    $existing[] = $newValue;
+                    $filterArray[$key] = $existing;
+                }
+            } else if ($key) {
+                $filterArray[$key] = $newValue;
             }
         }
         return $filterArray;
