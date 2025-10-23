@@ -112,9 +112,9 @@ class FilterItem extends DataObject
             ' ',
             array_filter(
                 [
-                    $this->getFieldNameNice() . ' => ',
+                    $this->getFieldNameNice(),
+                    $this->getFilterTypeNice() . ':',
                     $this->getFilterValueNice(),
-                    '(' . $this->getFilterTypeNice() . ')',
                     ($this->SelectOpposite ? '- invert selection' : ''),
                 ]
             )
@@ -146,7 +146,7 @@ class FilterItem extends DataObject
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
-        $v = $list[$this->FilterType] ?? $this->FilterType ?: 'Exact Match';
+        $v = $list[$this->FilterType] ?? $this->FilterType ?: 'is exactly';
         if ($this->SelectOpposite) {
             $v = 'NOT: ' . $v;
         }
@@ -442,20 +442,20 @@ class FilterItem extends DataObject
     {
         $result = parent::validate();
         if ($this->FieldName && $this->ID && $this->SelectionID) {
-            $filter = [
-                'SelectionID' => $this->SelectionID,
-                'FieldName' => $this->FieldName,
-                'FilterType' => $this->FilterType,
-                'SelectOpposite' => $this->SelectOpposite,
-                'IsEmpty' => $this->IsEmpty,
-            ];
+            // $filter = [
+            //     'SelectionID' => $this->SelectionID,
+            //     'FieldName' => $this->FieldName,
+            //     'FilterType' => $this->FilterType,
+            //     'SelectOpposite' => $this->SelectOpposite,
+            //     'IsEmpty' => $this->IsEmpty,
+            // ];
 
-            if (static::get()->filter($filter)->exclude('ID', $this->ID)->exists()) {
-                $result->addFieldError(
-                    'FieldName',
-                    _t(__CLASS__ . '.ERROR_KEY_EXISTS', 'A record for this filter already exists. All filters must be unique.')
-                );
-            }
+            // if (static::get()->filter($filter)->exclude('ID', $this->ID)->exists()) {
+            //     $result->addFieldError(
+            //         'FieldName',
+            //         _t(__CLASS__ . '.ERROR_KEY_EXISTS', 'A record for this filter already exists. All filters must be unique.')
+            //     );
+            // }
         }
         return $result;
     }
@@ -610,8 +610,14 @@ class FilterItem extends DataObject
             if (empty(self::$field_value_cache[$key]['f'])) {
                 self::$field_value_cache[$key]['f'] = TextField::create('FilterValue', 'Filter Value', (string) $this->FilterValue);
             }
+            $oldDescription = self::$field_value_cache[$key]['f']->getDescription();
+            if ($oldDescription && strpos($oldDescription, $i) !== false) {
+                $newDescription = $oldDescription;
+            } else {
+                $newDescription = $oldDescription . ' ' . $i;
+            }
             self::$field_value_cache[$key]['f']
-                ->setDescription(self::$field_value_cache[$key]['f']->getDescription() . ' ' . $i)
+                ->setDescription($newDescription)
                 ->setTitle('Filter Value')
             ;
             return self::$field_value_cache[$key]['f'];
