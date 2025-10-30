@@ -9,6 +9,7 @@ use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\ORM\FieldType\DBHTMLText;
 use SilverStripe\View\Requirements;
+use SilverStripe\Forms\GridField\GridFieldDataColumns;
 use Sunnysideup\Selections\Admin\SelectionsAdmin;
 use Sunnysideup\Selections\Model\Selection;
 
@@ -63,13 +64,9 @@ JS;
 
     public function updateList(&$list)
     {
-        $owner = $this->getOwner();
-        $usepredefinedselection = $owner->getRequest()->getVar('usepredefinedselection');
-        if ($usepredefinedselection) {
-            $selection = Selection::get()->byID((int) $usepredefinedselection);
-            if ($selection && $selection->exists()) {
-                $list = $selection->getSelectionDataList();
-            }
+        $selection = $this->getUserPredefinedSelection();
+        if ($selection && $selection->exists()) {
+            $list = $selection->getSelectionDataList();
         }
     }
 
@@ -78,7 +75,39 @@ JS;
         return str_replace('\\', '-', $class ?? '');
     }
 
-    private function createLinkToSelectionsModelAdmin(): string
+    protected function getUserPredefinedSelection(): ?Selection
+    {
+        $owner = $this->getOwner();
+        $usepredefinedselection = $owner->getRequest()->getVar('usepredefinedselection');
+        if ($usepredefinedselection) {
+            $selection = Selection::get()->byID((int) $usepredefinedselection);
+            if ($selection && $selection->exists()) {
+                return $selection;
+            }
+        }
+        return null;
+    }
+
+    protected function sanitiseClassNameHelper($class)
+    {
+        return str_replace('\\', '-', $class ?? '');
+    }
+    protected function updateGridField(&$field)
+    {
+        // @todo: this does not seem to work
+        $owner = $this->getOwner();
+        $selection = $this->getUserPredefinedSelection();
+        if ($selection && $selection->exists()) {
+            $displayFields = $selection->getSelectionDisplayFields();
+            if (!empty($displayFields)) {
+                $field
+                    ->getConfig()
+                    ->getComponentByType(GridFieldDataColumns::class)
+                    ->setDisplayFields($displayFields);
+            }
+        }
+    }
+    protected function createLinkToSelectionsModelAdmin(): string
     {
         $owner = $this->getOwner();
         $link = Injector::inst()->get(SelectionsAdmin::class)->Link();
