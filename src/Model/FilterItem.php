@@ -146,9 +146,9 @@ class FilterItem extends DataObject
     public function getFilterTypeNice(): string
     {
         $list = $this->getFilterTypesAvailable();
-        $v = $list[$this->FilterType] ?? $this->FilterType ?: 'is exactly';
+        $v = $list[$this->FilterType] ?? $this->FilterType ?: 'use default';
         if ($this->SelectOpposite) {
-            $v = 'NOT: ' . $v;
+            $v =  $v . ' (invert selection)';
         }
         return $v;
     }

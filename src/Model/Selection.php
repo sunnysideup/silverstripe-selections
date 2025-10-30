@@ -22,6 +22,8 @@ use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
+use SilverStripe\Security\Permission;
+use SilverStripe\Security\Security;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
@@ -47,6 +49,8 @@ class Selection extends DataObject
     private static $singular_name = 'Record Selection';
 
     private static $plural_name = 'Record Selections';
+
+    protected bool $debug = false;
 
     private static $db = [
         'ModelClassName' => 'Varchar(255)',
@@ -74,7 +78,7 @@ class Selection extends DataObject
         'ModelClassName' => 'Record Type',
         'ModelClassNameNice' => 'Record Type',
         'LimitTo' => 'Maximum number of records (0 = all)',
-        'FilterAny' => 'Include records that match any of the filters (instead of all) - note that if you include two or more filters for the same field, they will also be treated as a match any condition.',
+        'FilterAny' => 'Include records that match any of the filters (instead of all)',
         'FilterSelectionSummary' => 'Filter Summary',
     ];
 
@@ -85,11 +89,17 @@ class Selection extends DataObject
         'NumberOfRecords' => 'Matches',
     ];
 
+    private static $searchable_fields = [
+        'Title',
+        'ModelClassName',
+    ];
+
     private static $casting = [
         'ModelClassNameNice' => 'Varchar',
         'NumberOfRecords' => 'Int',
         'FilterSelectionSummary' => 'Text',
         'RawSqlInfo' => 'HTMLText',
+        'ListOfIds' => 'Varchar',
     ];
 
     private static $default_sort = 'ID DESC';
@@ -221,6 +231,22 @@ class Selection extends DataObject
             $this,
             $fields,
         );
+        $fields->dataFieldByName('FilterAny')
+            ?->setDescription(
+                'NB. If you include two or more filters for the same field, they will also be treated as a match any condition.'
+            );
+        $fields->fieldByName('Root.FilterSelection')
+            ?->setTitle(
+                'Filter'
+            );
+        $fields->fieldByName('Root.SortSelection')
+            ?->setTitle(
+                'Sort'
+            );
+        $fields->fieldByName('Root.DisplaySelection')
+            ?->setTitle(
+                'Display'
+            );
         return $fields;
     }
 
@@ -303,10 +329,24 @@ class Selection extends DataObject
     public function getRawSqlInfo(): string
     {
         $list = $this->getSelectionDataList();
-        if ($list) {
+        if ($list && $this->isDebug()) {
             return $list->sql();
         }
         return 'no sql available';
+    }
+
+    public function getListOfIds(): string
+    {
+        $list = $this->getSelectionDataList();
+        if ($list && $list->exists() && $this->isDebug()) {
+            return implode(', ', $list->columnUnique('ID'));
+        }
+        return '';
+    }
+
+    protected function isDebug(): bool
+    {
+        return $this->debug || Security::getCurrentUser()?->isDefaultAdmin();
     }
 
     public function getRecordSingleton()
