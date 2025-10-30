@@ -88,10 +88,6 @@ JS;
         return null;
     }
 
-    protected function sanitiseClassNameHelper($class)
-    {
-        return str_replace('\\', '-', $class ?? '');
-    }
     protected function updateGridField(&$field)
     {
         // @todo: this does not seem to work
