@@ -140,7 +140,7 @@ class FilterItem extends DataObject
         if ((bool) $this->UseAdvancedFieldSelection === false) {
             return '';
         }
-        return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
+        return (string) Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
     public function getFilterTypeNice(): string
