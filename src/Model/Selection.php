@@ -37,7 +37,7 @@ class Selection extends DataObject
     protected static $selection_cache_var = [];
     public static function selection_cache($id)
     {
-        if (!isset(self::$selection_cache_var[$id])) {
+        if (!array_key_exists($id, self::$selection_cache_var)) {
             self::$selection_cache_var[$id] = self::get()->byID($id);
         }
         return self::$selection_cache_var[$id];
