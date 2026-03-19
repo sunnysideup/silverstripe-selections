@@ -20,6 +20,7 @@
         "silverstripe/framework": "^5.0",
         "silverstripe/admin": "^2.0",
         "sunnysideup/classes-and-fields-info": "dev-main",
+        "sunnysideup/add-casted-variables":  "dev-main",
         "sunnysideup/optionsetfield-grouped": "dev-main"
     },
     "require-dev": {
