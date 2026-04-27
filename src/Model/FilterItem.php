@@ -26,7 +26,6 @@ use SilverStripe\ORM\FieldType\DBPercentage;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
 use SilverStripe\ORM\Search\SearchContext;
-use SilverStripe\ORM\ValidationResult;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
@@ -448,7 +447,7 @@ class FilterItem extends DataObject
     }
 
     /**
-     * @return ValidationResult
+     * @return \SilverStripe\Core\Validation\ValidationResult
      */
     public function validate()
     {
@@ -509,7 +508,7 @@ class FilterItem extends DataObject
                             $v = [null];
                         } else {
                             $v = strtolower($v);
-                            $v = $v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1;
+                            $v = in_array($v, ['1', 'true', 'yes', 'on', 1], true);
 
                             $f = OptionsetField::create(
                                 'FilterValue',
