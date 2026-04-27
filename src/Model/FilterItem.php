@@ -4,27 +4,21 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
-use BcMath\Number;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\FormField;
-use SilverStripe\Forms\GroupedDropdownField;
-use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\NumericField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\Forms\TextField;
-use SilverStripe\GraphQL\Schema\Field\Field;
 use SilverStripe\ORM\DataObject;
-use SilverStripe\ORM\DB;
 use SilverStripe\ORM\FieldType\DBBoolean;
 use SilverStripe\ORM\FieldType\DBDate;
 use SilverStripe\ORM\FieldType\DBDatetime;
 use SilverStripe\ORM\FieldType\DBDecimal;
 use SilverStripe\ORM\FieldType\DBDouble;
-use SilverStripe\ORM\FieldType\DBEnum;
 use SilverStripe\ORM\FieldType\DBField;
 use SilverStripe\ORM\FieldType\DBFloat;
 use SilverStripe\ORM\FieldType\DBInt;
@@ -125,12 +119,11 @@ class FilterItem extends DataObject
     {
         $list = $this->getFieldsNamesAvailable();
         foreach ($list as $fields) {
-            if (is_array($fields)) {
-                if (isset($fields[$this->FieldName])) {
-                    return $fields[$this->FieldName];
-                }
+            if (is_array($fields) && isset($fields[$this->FieldName])) {
+                return $fields[$this->FieldName];
             }
         }
+
         return (string) $this->FieldName ?: 'ERROR';
     }
 
@@ -140,6 +133,7 @@ class FilterItem extends DataObject
         if ((bool) $this->UseAdvancedFieldSelection === false) {
             return '';
         }
+
         return (string) Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
@@ -148,8 +142,9 @@ class FilterItem extends DataObject
         $list = $this->getFilterTypesAvailable();
         $v = $list[$this->FilterType] ?? $this->FilterType ?: 'use default';
         if ($this->SelectOpposite) {
-            $v =  $v . ' (invert selection)';
+            $v .= ' (invert selection)';
         }
+
         return $v;
     }
 
@@ -166,23 +161,28 @@ class FilterItem extends DataObject
                     if (is_object($source)) {
                         $source = $source->toArray();
                     }
+
                     $filterValue = $source[$this->FilterValue] ?? $this->FilterValue;
                 }
             }
         }
+
         if ($this->IsEmpty) {
             $filterValue = '[Empty Value]';
         } else {
             if (!isset($filterValue)) {
                 $filterValue = $this->getFieldValueCalculated();
             }
-            if ($filterValue === 0 || $filterValue === '0' || $filterValue === false) {
+
+            if (in_array($filterValue, [0, '0', false], true)) {
                 $filterValue = 'NO, ZERO OR FALSE';
             }
-            if ($filterValue === 1 || $filterValue === '1' || $filterValue === true) {
+
+            if (in_array($filterValue, [1, '1', true], true)) {
                 $filterValue = 'YES, TRUE OR ONE';
             }
         }
+
         return (string) ($filterValue ?: 'filter value not set');
     }
 
@@ -194,9 +194,11 @@ class FilterItem extends DataObject
         if ($filterType && $filterType !== 'ExactMatch') {
             $v .= ':' . $filterType;
         }
+
         if ($this->SelectOpposite) {
             $v .= ':NOT';
         }
+
         return $v;
     }
 
@@ -211,11 +213,11 @@ class FilterItem extends DataObject
         } else {
             $v = $this->FilterType;
         }
-        if ($v && ! class_exists($v) && ! class_exists('DataList.' . $v)) {
-            if (str_ends_with($v, (string) 'Filter')) {
-                $v = substr($v, 0, -6);
-            }
+
+        if ($v && ! class_exists($v) && !class_exists('DataList.' . $v) && str_ends_with($v, (string) 'Filter')) {
+            $v = substr($v, 0, -6);
         }
+
         return $v ?: 'ExactMatch';
     }
 
@@ -226,17 +228,15 @@ class FilterItem extends DataObject
     {
         $v = $this->getFieldValueCalculated();
         if ($this->IsAvailableForMultipleValues() && $this->ValueSeparator && str_contains((string) $v, $this->ValueSeparator)) {
-            $v = array_map('trim', explode($this->ValueSeparator, (string) $v));
+            $v = array_map(trim(...), explode($this->ValueSeparator, (string) $v));
         }
+
         return $v;
     }
 
     protected function IsAvailableForMultipleValues(): bool
     {
-        if ($this->FilterType === 'ExactMatch') {
-            return true;
-        }
-        return false;
+        return $this->FilterType === 'ExactMatch';
     }
 
     public function getFieldValueCalculated()
@@ -263,6 +263,7 @@ class FilterItem extends DataObject
                 ),
             );
         }
+
         $fields = parent::getCMSFields();
         $fields->addFieldToTab(
             'Root.Main',
@@ -299,6 +300,7 @@ class FilterItem extends DataObject
             $fields->removeByName('FilterType');
             $fields->removeByName('IsEmpty');
         }
+
         if ($this->IsEmpty) {
             $fields->replaceField(
                 'FilterValue',
@@ -314,6 +316,7 @@ class FilterItem extends DataObject
                 $this->getFieldValueFormField()
             );
         }
+
         if ($this->IsAvailableForMultipleValues()) {
             $fields->replaceField(
                 'ValueSeparator',
@@ -339,7 +342,7 @@ class FilterItem extends DataObject
         return $fields;
     }
 
-    public function onBeforeWrite(): void
+    protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
         if ($this->FilterValue) {
@@ -349,9 +352,11 @@ class FilterItem extends DataObject
                 (string) $this->FilterValue
             );
         }
+
         if ($this->Empty) {
             $this->FilterType = '';
         }
+
         if ($this->isChanged('UseAdvancedFieldSelection', DataObject::CHANGE_VALUE)) {
             $this->FieldName = '';
             $this->FilterType = '';
@@ -359,6 +364,7 @@ class FilterItem extends DataObject
             $this->ValueSeparator = '';
             $this->FilterValue = '';
         }
+
         if (!$this->IsAvailableForMultipleValues) {
             $this->ValueSeparator = '';
         }
@@ -367,9 +373,10 @@ class FilterItem extends DataObject
     protected function getFieldsNamesAvailable(?bool $grouped = false): array
     {
         $model = $this->getModelSingleton();
-        if (! $model) {
+        if (!$model instanceof DataObject) {
             return [];
         }
+
         if ($this->UseAdvancedFieldSelection) {
             $otherLists = Injector::inst()->get(ClassAndFieldInfo::class)
                 ->getListOfFieldNames(
@@ -379,10 +386,12 @@ class FilterItem extends DataObject
                 );
             return $otherLists;
         }
+
         $mainList = [];
         foreach ($this->getSearchFilters() as $k => $searchFilter) {
-            $mainList[$k] = isset($searchFilter['title']) ? $searchFilter['title'] : (is_string($searchFilter) ? $searchFilter : $k);
+            $mainList[$k] = $searchFilter['title'] ?? (is_string($searchFilter) ? $searchFilter : $k);
         }
+
         return ['Main Fields' => $mainList];
     }
 
@@ -395,6 +404,7 @@ class FilterItem extends DataObject
     {
         return $this->getModelSingleton()?->searchableFields();
     }
+
     protected function getSearchFields(): ?FieldList
     {
         return $this->getSearchContext()?->getSearchFields();
@@ -405,6 +415,7 @@ class FilterItem extends DataObject
         if ($this->IsEmpty) {
             return [];
         }
+
         return [
             'PartialMatch' => 'Contains',
             'StartsWith' => 'Starts With',
@@ -432,6 +443,7 @@ class FilterItem extends DataObject
         if (!$selection || !$selection->exists() || !$selection->ModelClassName) {
             return null;
         }
+
         return Injector::inst()->get($selection->ModelClassName);
     }
 
@@ -457,6 +469,7 @@ class FilterItem extends DataObject
             //     );
             // }
         }
+
         return $result;
     }
 
@@ -474,16 +487,19 @@ class FilterItem extends DataObject
                 if ($f && $f instanceof FormField) {
                     $f->setName('FilterValue');
                 }
+
                 $v = trim((string) $this->FilterValue);
                 $i = '';
             } else {
                 $type = $this->getFieldTypeObject();
-                if (!$type) {
+                if (!$type instanceof DBField) {
                     $type = DBString::class;
                 }
+
                 if (is_object($type)) {
-                    $type = get_class($type);
+                    $type = $type::class;
                 }
+
                 $v = trim((string) $this->FilterValue);
                 $f = TextField::create('FilterValue', 'Filter Value', $v);
                 switch ($type) {
@@ -493,11 +509,8 @@ class FilterItem extends DataObject
                             $v = [null];
                         } else {
                             $v = strtolower($v);
-                            if ($v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1) {
-                                $v = true;
-                            } else {
-                                $v = false;
-                            }
+                            $v = $v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1;
+
                             $f = OptionsetField::create(
                                 'FilterValue',
                                 'Filter Value',
@@ -508,16 +521,13 @@ class FilterItem extends DataObject
                                 $v ? 1 : 0
                             )->setEmptyString('-- select yes or no --');
                         }
+
                         $i = 'Please enter one of these: "yes" or "no", "true" or "false", "1" or "0".';
                         break;
                     case 'Int':
                     case DBInt::class:
-                        if ($this->IsEmpty) {
-                            $v = [null, 0];
-                        } else {
+                        $v = $this->IsEmpty ? [null, 0] : (int) $v;
 
-                            $v = (int) $v;
-                        }
                         $i = 'Please enter a whole number, e.g. "1" or "2" or "3" or "-10".';
                         $f = NumericField::create('FilterValue', 'Filter Value', (string) $v);
                         break;
@@ -529,23 +539,22 @@ class FilterItem extends DataObject
                     case DBDecimal::class:
                     case DBDouble::class:
                     case DBPercentage::class:
-                        if ($this->IsEmpty) {
-                            $v = [null, 0];
-                        } else {
-                            $v = (float) $v;
-                        }
+                        $v = $this->IsEmpty ? [null, 0] : (float) $v;
+
                         $i = 'Please enter a number, e.g. "1" or "2" or "3" or "-10" or "1.5" or "2.5" or "3.5".';
                         $f = NumericField::create('FilterValue', 'Filter Value', (string) $v);
                         break;
                     case 'Date':
                     case DBDate::class:
-                        if (! $v) {
+                        if ($v === '' || $v === '0') {
                             $v = $this->FilterValue;
                         }
+
                         $date = strtotime((string) $v);
                         if (! $date) {
                             $date = time();
                         }
+
                         $v = date('Y-m-d', $date);
                         $v = DBDate::create_field(DBDate::class, $v)->getValue();
                         $i = 'Please enter a date, e.g. "2023-01-01" or "tomorrow" or "yesterday" or "+3 days" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
@@ -555,16 +564,19 @@ class FilterItem extends DataObject
                         if ($this->IsEmpty) {
                             $v = [null];
                         } else {
-                            if (! $v) {
+                            if ($v === '' || $v === '0') {
                                 $v = $this->FilterValue;
                             }
+
                             $date = strtotime((string) $v);
                             if (! $date) {
                                 $date = time();
                             }
+
                             $v = date('Y-m-d H:i:s', $date);
                             $v = DBTime::create_field(DBTime::class, (string) $v)->getValue();
                         }
+
                         $i = 'Please enter a time, e.g. "12:00" or "12:00:00" or "12:00:00 AM" or "12:00:00 PM" or "12:00 AM" or "12:00 PM".';
                         break;
                     case 'Datetime':
@@ -572,16 +584,19 @@ class FilterItem extends DataObject
                         if ($this->IsEmpty) {
                             $v = [null];
                         } else {
-                            if (! $v) {
+                            if ($v === '' || $v === '0') {
                                 $v = $this->FilterValue;
                             }
+
                             $date = strtotime((string) $v);
                             if (! $date) {
                                 $date = time();
                             }
+
                             $v = date('Y-m-d H:i:s', $date);
                             $v = DBField::create_field(DBDatetime::class, $v)->getValue();
                         }
+
                         $i = 'You can enter anything like "2023-01-01 12:00:00" or "tomorrow midday" or "yesterday 3pm" or "+3 hours" or "next week" or "last week" or "next month" or "last month" or "next year" or "last year".';
                         break;
                     case 'Varchar':
@@ -596,9 +611,11 @@ class FilterItem extends DataObject
                         } else {
                             // do nothing
                         }
+
                         $i = 'Please enter one or more words, e.g. "hello" or "world"  or "hello world".';
                 }
             }
+
             self::$field_value_cache[$key] = [
                 'v' => $v,
                 'f' => $f,
@@ -610,21 +627,21 @@ class FilterItem extends DataObject
             if (empty(self::$field_value_cache[$key]['f'])) {
                 self::$field_value_cache[$key]['f'] = TextField::create('FilterValue', 'Filter Value', (string) $this->FilterValue);
             }
+
             $oldDescription = self::$field_value_cache[$key]['f']->getDescription();
-            if ($oldDescription && strpos($oldDescription, $i) !== false) {
-                $newDescription = $oldDescription;
-            } else {
-                $newDescription = $oldDescription . ' ' . $i;
-            }
+            $newDescription = $oldDescription && str_contains((string) $oldDescription, (string) $i) ? $oldDescription : $oldDescription . ' ' . $i;
+
             self::$field_value_cache[$key]['f']
                 ->setDescription($newDescription)
                 ->setTitle('Filter Value')
             ;
             return self::$field_value_cache[$key]['f'];
         }
+
         if ($getInstruction) {
             return $i;
         }
+
         return $v;
     }
 }

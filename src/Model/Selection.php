@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
-use SilverStripe\AnyField\Form\ManyAnyField;
-use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldGroup;
 use SilverStripe\Forms\FieldList;
@@ -16,17 +14,13 @@ use SilverStripe\Forms\GridField\GridFieldConfig_RecordEditor;
 use SilverStripe\Forms\GridField\GridFieldDataColumns;
 use SilverStripe\Forms\GridField\GridFieldDeleteAction;
 use SilverStripe\Forms\GridField\GridFieldFilterHeader;
-use SilverStripe\Forms\GroupedDropdownField;
-use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBField;
-use SilverStripe\Security\Permission;
 use SilverStripe\Security\Security;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
-use Sunnysideup\ClassesAndFieldsInfo\Traits\ClassesAndFieldsTrait;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
 use Sunnysideup\Selections\Admin\SelectionsAdmin;
 use UndefinedOffset\SortableGridField\Forms\GridFieldSortableRows;
@@ -35,11 +29,13 @@ class Selection extends DataObject
 {
 
     protected static $selection_cache_var = [];
+
     public static function selection_cache($id)
     {
         if (!array_key_exists($id, self::$selection_cache_var)) {
             self::$selection_cache_var[$id] = self::get()->byID($id);
         }
+
         return self::$selection_cache_var[$id];
     }
 
@@ -103,6 +99,7 @@ class Selection extends DataObject
     ];
 
     private static $default_sort = 'ID DESC';
+
     private static array $class_and_field_inclusion_exclusion_schema = [
         // 'only_include_models_with_cmseditlink' => true,
         // 'only_include_models_with_can_create' => false,
@@ -131,7 +128,7 @@ class Selection extends DataObject
             $fields = parent::getCMSFields();
             $fields->replaceField(
                 'ModelClassName',
-                $this->getSelectClassNameField(false, true)
+                $this->getSelectClassNameField(false)
             );
             $limitTo = $fields->dataFieldByName('LimitTo');
             $limitTo->setDescription(
@@ -146,10 +143,7 @@ class Selection extends DataObject
             $fields->addFieldsToTab(
                 'Root.Main',
                 [
-                    new FieldGroup(
-                        $limitTo,
-                        $startFromRecordNumber
-                    ),
+                    FieldGroup::create($limitTo, $startFromRecordNumber),
                 ]
             );
 
@@ -161,7 +155,7 @@ class Selection extends DataObject
                 'FilterSelection'
             );
             $list = $this->getSelectionDataList();
-            if ($list) {
+            if ($list instanceof DataList) {
                 $fields->addFieldsToTab(
                     'Root.Matches',
                     [
@@ -177,15 +171,17 @@ class Selection extends DataObject
                     'Matches: ' . ($list->count())
                 );
             }
+
             $config->removeComponentsByType(GridFieldAddNewButton::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
             $displayFields = $this->getSelectionDisplayFields();
-            if (!empty($displayFields)) {
+            if ($displayFields !== []) {
                 $config
                     ->getComponentByType(GridFieldDataColumns::class)
                     ->setDisplayFields($displayFields);
             }
         }
+
         // $fields->addFieldsToTab(
         //     'Root.SortSelection',
         //     [
@@ -217,11 +213,12 @@ class Selection extends DataObject
             $config->removeComponentsByType(GridFieldFilterHeader::class);
             $config->removeComponentsByType(GridFieldAddExistingAutocompleter::class);
             $config->removeComponentsByType(GridFieldDeleteAction::class);
-            $config->addComponent(new GridFieldDeleteAction(false));
+            $config->addComponent(GridFieldDeleteAction::create(false));
             if ($name !== 'FilterSelection') {
                 $config->addComponent(new GridFieldSortableRows('SortOrder'));
             }
         }
+
         $fields->dataFieldByName('Description')
             ->setRows(3)
             ->setDescription(
@@ -254,10 +251,7 @@ class Selection extends DataObject
     protected function HasValidClassName(): bool
     {
         $className = $this->ModelClassName;
-        if ($className && class_exists($className)) {
-            return true;
-        }
-        return false;
+        return $className && class_exists($className);
     }
 
 
@@ -286,6 +280,7 @@ class Selection extends DataObject
                 '
             );
         }
+
         return $field;
     }
 
@@ -296,6 +291,7 @@ class Selection extends DataObject
         if ($obj) {
             return $obj->i18n_singular_name();
         }
+
         return 'ERROR: Class not found';
     }
 
@@ -305,6 +301,7 @@ class Selection extends DataObject
         if ($list && $list->exists()) {
             return $list->count();
         }
+
         return 0;
     }
 
@@ -319,10 +316,12 @@ class Selection extends DataObject
                 break;
             }
         }
-        if (count($parts)) {
+
+        if ($parts !== []) {
             $glue = $this->FilterAny ? ' OR ' : ' AND ';
             return implode($glue, $parts);
         }
+
         return 'No filters selected';
     }
 
@@ -332,6 +331,7 @@ class Selection extends DataObject
         if ($list && $this->isDebug()) {
             return $list->sql();
         }
+
         return 'no sql available';
     }
 
@@ -341,6 +341,7 @@ class Selection extends DataObject
         if ($list && $list->exists() && $this->isDebug()) {
             return implode(', ', $list->columnUnique('ID'));
         }
+
         return '';
     }
 
@@ -354,6 +355,7 @@ class Selection extends DataObject
         if ($this->HasValidClassName()) {
             return Injector::inst()->get($this->ModelClassName);
         }
+
         return null;
     }
 
@@ -363,19 +365,18 @@ class Selection extends DataObject
         if (!$className || !class_exists($className)) {
             return null;
         }
+
         $list = $className::get();
         $filter = $this->getSelectionFilterArray();
-        if (!empty($filter)) {
-            if ($this->FilterAny) {
-                $list = $list->filterAny($filter);
-            } else {
-                $list = $list->filter($filter);
-            }
+        if ($filter !== []) {
+            $list = $this->FilterAny ? $list->filterAny($filter) : $list->filter($filter);
         }
+
         $sort = $this->getSelectionSortArray();
-        if (!empty($sort)) {
+        if ($sort !== []) {
             $list = $list->sort($sort);
         }
+
         if ($this->StartFromRecordNumber) {
             $limit = $this->LimitTo ?: 99999999;
             $list = $list->limit($limit, ($this->StartFromRecordNumber - 1));
@@ -398,6 +399,7 @@ class Selection extends DataObject
                     // not an array, make it one
                     $existing = [$existing];
                 }
+
                 // already an array, add to it
                 if (is_array($newValue)) {
                     $filterArray[$key] = array_merge($existing, $newValue);
@@ -405,10 +407,11 @@ class Selection extends DataObject
                     $existing[] = $newValue;
                     $filterArray[$key] = $existing;
                 }
-            } else if ($key) {
+            } elseif ($key) {
                 $filterArray[$key] = $newValue;
             }
         }
+
         return $filterArray;
     }
 
@@ -419,8 +422,10 @@ class Selection extends DataObject
             if (!$sort->FieldName || !$sort->SortDirection) {
                 continue;
             }
+
             $sortArray[$sort->FieldName] = $sort->SortDirection;
         }
+
         return $sortArray;
     }
 
@@ -431,6 +436,7 @@ class Selection extends DataObject
             $displayType = $display->DisplayType ? '.' . $display->DisplayType : '';
             $sortArray[$display->FieldName . $displayType] = $display->Title;
         }
+
         return $sortArray;
     }
 
@@ -440,6 +446,7 @@ class Selection extends DataObject
         if ($className && class_exists($className)) {
             return Injector::inst()->get($className);
         }
+
         return null;
     }
 
@@ -453,20 +460,20 @@ class Selection extends DataObject
     public function getFieldTypeObjectName(string $fieldName): string
     {
         $obj = $this->getFieldTypeObject($fieldName);
-        if ($obj) {
+        if ($obj instanceof DBField) {
             return ClassAndFieldInfo::standard_short_field_type_name($obj, true);
         }
+
         return 'ERROR: Field ' . $fieldName . 'not found';
     }
 
     protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
-        if ($this->HasValidClassName()) {
-            if (!$this->Title) {
-                $this->Title = $this->getModelClassNameNice();
-            }
+        if ($this->HasValidClassName() && !$this->Title) {
+            $this->Title = $this->getModelClassNameNice();
         }
+
         if ($this->Title && !$this->isInDB() || $this->isChanged('Title')) {
             $this->Title = $this->ensureUniqueTitle((string) $this->Title);
         }
@@ -498,6 +505,7 @@ class Selection extends DataObject
         if (!$baseTitle) {
             return '';
         }
+
         $suffix = 1;
         $newTitle = $baseTitle;
 

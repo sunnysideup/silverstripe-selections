@@ -125,6 +125,7 @@ class DisplayItem extends DataObject
                 )
             );
         }
+
         $fields = parent::getCMSFields();
         $fields->replaceField(
             'FieldName',
@@ -157,6 +158,7 @@ class DisplayItem extends DataObject
         if (!$selection) {
             return [];
         }
+
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection->ModelClassName,
@@ -169,15 +171,16 @@ class DisplayItem extends DataObject
     protected function getDisplayTypesAvailable(): array
     {
         $obj = $this->getFieldTypeObject();
-        if ($obj) {
+        if ($obj instanceof DBField) {
             $options = [];
-            $vars = Config::inst()->get(get_class($obj), 'casting') ?: [];
+            $vars = Config::inst()->get($obj::class, 'casting') ?: [];
             $standards = Config::inst()->get(self::class, 'standard_formats') ?: [];
             foreach (array_keys($standards) as $method) {
                 if ($obj->hasMethod($method)) {
                     $vars[$method] = $method;
                 }
             }
+
             $optionsAvailable = Config::inst()->get(self::class, 'casted_variable_options') ?: [];
             foreach (array_keys($vars) as $key) {
                 if (!isset($optionsAvailable[$key])) {
@@ -188,8 +191,10 @@ class DisplayItem extends DataObject
                     // do nothing
                 }
             }
+
             return $options;
         }
+
         return [];
     }
 
@@ -199,7 +204,7 @@ class DisplayItem extends DataObject
     }
 
 
-    public function onBeforeWrite(): void
+    protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
         if (!$this->Title) {

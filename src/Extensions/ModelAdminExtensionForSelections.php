@@ -2,7 +2,6 @@
 
 namespace Sunnysideup\Selections\Extensions;
 
-use SilverStripe\Core\ClassInfo;
 use SilverStripe\Core\Extension;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\DropdownField;
@@ -20,8 +19,7 @@ class ModelAdminExtensionForSelections extends Extension
         $owner = $this->getOwner();
         $usepredefinedselection = $owner->getRequest()->getVar('usepredefinedselection');
         $selections = Selection::get()
-            ->filter(['ModelClassName' => $owner->modelClass])
-            ->sort('Title', 'ASC');
+            ->filter(['ModelClassName' => $owner->modelClass])->sort(['Title' => 'ASC']);
         if ($selections->exists()) {
             $form->Fields()->unshift(
                 DropdownField::create(
@@ -47,6 +45,7 @@ class ModelAdminExtensionForSelections extends Extension
                 );
             }
         }
+
         $js = <<<JS
 function updatePredefinedSelection(select) {
   const id = encodeURIComponent(select.value);
@@ -85,6 +84,7 @@ JS;
                 return $selection;
             }
         }
+
         return null;
     }
 
@@ -95,7 +95,7 @@ JS;
         $selection = $this->getUserPredefinedSelection();
         if ($selection && $selection->exists()) {
             $displayFields = $selection->getSelectionDisplayFields();
-            if (!empty($displayFields)) {
+            if ($displayFields !== []) {
                 $field
                     ->getConfig()
                     ->getComponentByType(GridFieldDataColumns::class)
@@ -103,12 +103,13 @@ JS;
             }
         }
     }
+
     protected function createLinkToSelectionsModelAdmin(): string
     {
         $owner = $this->getOwner();
         $link = Injector::inst()->get(SelectionsAdmin::class)->Link();
         $filters = [
-            'ModelClassName' => addslashes($owner->modelClass),
+            'ModelClassName' => addslashes((string) $owner->modelClass),
         ];
         $json = json_encode([
             'GridFieldFilterHeader' => ['Columns' => $filters],
