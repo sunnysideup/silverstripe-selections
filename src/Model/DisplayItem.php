@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use Override;
 use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
@@ -114,6 +115,7 @@ class DisplayItem extends DataObject
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObjectName($this->FieldName);
     }
 
+    #[Override]
     public function getCMSFields()
     {
         if (!$this->FieldName) {
@@ -204,6 +206,7 @@ class DisplayItem extends DataObject
     }
 
 
+    #[Override]
     protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
@@ -212,6 +215,7 @@ class DisplayItem extends DataObject
         }
     }
 
+    #[Override]
     public function CMSEditLink(): string
     {
         return Injector::inst()->get(SelectionsAdmin::class)

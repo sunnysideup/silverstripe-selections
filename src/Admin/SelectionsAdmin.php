@@ -2,6 +2,7 @@
 
 namespace Sunnysideup\Selections\Admin;
 
+use Override;
 use SilverStripe\Admin\ModelAdmin;
 use SilverStripe\Forms\LiteralField;
 use Sunnysideup\Selections\Model\DisplayItem;
@@ -25,6 +26,7 @@ class SelectionsAdmin extends ModelAdmin
     ];
 
 
+    #[Override]
     public function getEditForm($id = null, $fields = null)
     {
         $form = parent::getEditForm($id, $fields);

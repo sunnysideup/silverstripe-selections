@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use Override;
+use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
@@ -99,6 +101,7 @@ class FilterItem extends DataObject
         'grouped' => true,
     ];
 
+    #[Override]
     public function getTitle(): string
     {
         return implode(
@@ -248,6 +251,7 @@ class FilterItem extends DataObject
         return $this->getFieldValueCalculatedInner(null, true);
     }
 
+    #[Override]
     public function getCMSFields()
     {
 
@@ -341,6 +345,7 @@ class FilterItem extends DataObject
         return $fields;
     }
 
+    #[Override]
     protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
@@ -430,6 +435,7 @@ class FilterItem extends DataObject
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject((string) $this->FieldName);
     }
 
+    #[Override]
     public function CMSEditLink(): string
     {
         return Injector::inst()->get(SelectionsAdmin::class)
@@ -447,8 +453,9 @@ class FilterItem extends DataObject
     }
 
     /**
-     * @return \SilverStripe\Core\Validation\ValidationResult
+     * @return ValidationResult
      */
+    #[Override]
     public function validate()
     {
         $result = parent::validate();

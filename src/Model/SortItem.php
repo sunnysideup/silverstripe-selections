@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use Override;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\OptionsetField;
@@ -61,6 +62,7 @@ class SortItem extends DataObject
         'grouped' => true,
     ];
 
+    #[Override]
     public function getTitle(): string
     {
         return implode(
@@ -89,6 +91,7 @@ class SortItem extends DataObject
 
 
 
+    #[Override]
     public function getCMSFields()
     {
 
@@ -152,6 +155,7 @@ class SortItem extends DataObject
         ];
     }
 
+    #[Override]
     public function CMSEditLink(): string
     {
         return Injector::inst()->get(SelectionsAdmin::class)
