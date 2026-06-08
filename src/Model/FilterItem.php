@@ -483,9 +483,13 @@ class FilterItem extends DataObject
         } else {
             if ((bool) $this->UseAdvancedFieldSelection === false) {
                 $fields = $this->getSearchFields();
-                $f = $fields->fieldByName($this->FieldName);
-                if ($f && $f instanceof FormField) {
-                    $f->setName('FilterValue');
+                if (!$fields) {
+                    $f = null;
+                } else {
+                    $f = $fields->fieldByName($this->FieldName);
+                    if ($f && $f instanceof FormField) {
+                        $f->setName('FilterValue');
+                    }
                 }
 
                 $v = trim((string) $this->FilterValue);
