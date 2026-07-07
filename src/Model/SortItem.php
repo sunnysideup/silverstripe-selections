@@ -6,7 +6,6 @@ namespace Sunnysideup\Selections\Model;
 
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldList;
-use SilverStripe\Forms\GroupedDropdownField;
 use SilverStripe\Forms\OptionsetField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\ORM\DataObject;
@@ -45,6 +44,7 @@ class SortItem extends DataObject
         'FieldNameNice' => 'Varchar',
         'SortDirectionNice' => 'Varchar',
     ];
+
     private static array $class_and_field_inclusion_exclusion_schema = [
         // 'only_include_models_with_cmseditlink' => true,
         // 'only_include_models_with_can_create' => false,
@@ -101,6 +101,7 @@ class SortItem extends DataObject
                 )
             );
         }
+
         $fields = parent::getCMSFields();
         $fields->replaceField(
             'FieldName',
@@ -134,6 +135,7 @@ class SortItem extends DataObject
         if (!$selection) {
             return [];
         }
+
         return Injector::inst()->get(ClassAndFieldInfo::class)
             ->getListOfFieldNames(
                 $selection->ModelClassName,
