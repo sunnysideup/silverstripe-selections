@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use Override;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\FieldGroup;
 use SilverStripe\Forms\FieldList;
@@ -117,6 +118,7 @@ class Selection extends DataObject
         'minimum_class_count' => 5,
     ];
 
+    #[Override]
     public function getCMSFields()
     {
         if (!$this->HasValidClassName()) {
@@ -467,6 +469,7 @@ class Selection extends DataObject
         return 'ERROR: Field ' . $fieldName . 'not found';
     }
 
+    #[Override]
     protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
@@ -479,6 +482,7 @@ class Selection extends DataObject
         }
     }
 
+    #[Override]
     public function CMSEditLink(): string
     {
         return Injector::inst()->get(SelectionsAdmin::class)
