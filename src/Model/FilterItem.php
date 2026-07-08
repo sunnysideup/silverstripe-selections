@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sunnysideup\Selections\Model;
 
+use Override;
+use SilverStripe\Core\Validation\ValidationResult;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\DropdownField;
@@ -26,7 +28,6 @@ use SilverStripe\ORM\FieldType\DBPercentage;
 use SilverStripe\ORM\FieldType\DBString;
 use SilverStripe\ORM\FieldType\DBTime;
 use SilverStripe\ORM\Search\SearchContext;
-use SilverStripe\ORM\ValidationResult;
 use Sunnysideup\AddCastedVariables\AddCastedVariablesHelper;
 use Sunnysideup\ClassesAndFieldsInfo\Api\ClassAndFieldInfo;
 use Sunnysideup\OptionsetFieldGrouped\Forms\OptionsetGroupedField;
@@ -100,6 +101,7 @@ class FilterItem extends DataObject
         'grouped' => true,
     ];
 
+    #[Override]
     public function getTitle(): string
     {
         return implode(
@@ -249,6 +251,7 @@ class FilterItem extends DataObject
         return $this->getFieldValueCalculatedInner(null, true);
     }
 
+    #[Override]
     public function getCMSFields()
     {
 
@@ -342,6 +345,7 @@ class FilterItem extends DataObject
         return $fields;
     }
 
+    #[Override]
     protected function onBeforeWrite(): void
     {
         parent::onBeforeWrite();
@@ -431,6 +435,7 @@ class FilterItem extends DataObject
         return Selection::selection_cache($this->SelectionID)?->getFieldTypeObject((string) $this->FieldName);
     }
 
+    #[Override]
     public function CMSEditLink(): string
     {
         return Injector::inst()->get(SelectionsAdmin::class)
@@ -450,6 +455,7 @@ class FilterItem extends DataObject
     /**
      * @return ValidationResult
      */
+    #[Override]
     public function validate()
     {
         $result = parent::validate();
@@ -483,7 +489,7 @@ class FilterItem extends DataObject
         } else {
             if ((bool) $this->UseAdvancedFieldSelection === false) {
                 $fields = $this->getSearchFields();
-                if (!$fields) {
+                if (!$fields instanceof FieldList) {
                     $f = null;
                 } else {
                     $f = $fields->fieldByName($this->FieldName);
@@ -513,7 +519,7 @@ class FilterItem extends DataObject
                             $v = [null];
                         } else {
                             $v = strtolower($v);
-                            $v = $v === '1' || $v === 'true' || $v === 'yes' || $v === 'on' || $v === 1;
+                            $v = in_array($v, ['1', 'true', 'yes', 'on', 1], true);
 
                             $f = OptionsetField::create(
                                 'FilterValue',
